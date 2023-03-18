@@ -1,0 +1,12 @@
+[package]
+name = "ddddocr"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+onnxruntime = "0.0.14"
+lazy_static = "1.4.0"
+serde = { vesion = "1.0.0", features = ["derive"] }
+serde_json = "1.0.0"
+anyhow = "1.0"
+image = "0.24.0"
