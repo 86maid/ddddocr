@@ -41,10 +41,10 @@ const STRIDES: [u32; 3] = [8, 16, 32];
 
 #[derive(Debug, Clone, Copy)]
 pub struct Point {
-    pub x1: f32,
-    pub y1: f32,
-    pub x2: f32,
-    pub y2: f32,
+    pub x1: u32,
+    pub y1: u32,
+    pub x2: u32,
+    pub y2: u32,
 }
 
 pub struct Ddddocr<'a> {
@@ -288,12 +288,32 @@ impl<'a> Ddddocr<'a> {
             }
             let mut new_result = Vec::new();
             for i in keep {
-                let point = result[i];
+                let mut point = result[i];
+                if point.x1 < 0f32 {
+                    point.x1 = 0f32;
+                } else if point.x1 > original_image.width() as f32 {
+                    point.x1 = (original_image.width() - 1) as f32;
+                }
+                if point.y1 < 0f32 {
+                    point.y1 = 0f32;
+                } else if point.y1 > original_image.height() as f32 {
+                    point.y1 = (original_image.height() - 1) as f32;
+                }
+                if point.x2 < 0f32 {
+                    point.x2 = 0f32;
+                } else if point.x2 > original_image.width() as f32 {
+                    point.x2 = (original_image.width() - 1) as f32;
+                }
+                if point.y2 < 0f32 {
+                    point.y2 = 0f32;
+                } else if point.y2 > original_image.height() as f32 {
+                    point.y2 = (original_image.height() - 1) as f32;
+                }
                 new_result.push(crate::Point {
-                    x1: point.x1,
-                    y1: point.y1,
-                    x2: point.x2,
-                    y2: point.y2,
+                    x1: point.x1 as u32,
+                    y1: point.y1 as u32,
+                    x2: point.x2 as u32,
+                    y2: point.y2 as u32,
                 });
             }
             new_result
