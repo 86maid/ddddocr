@@ -40,7 +40,7 @@ const MODEL_HEIGHT: u32 = 416;
 const STRIDES: [u32; 3] = [8, 16, 32];
 
 #[derive(Debug, Clone, Copy)]
-pub struct Point {
+pub struct BBox {
     pub x1: u32,
     pub y1: u32,
     pub x2: u32,
@@ -159,7 +159,7 @@ impl<'a> Ddddocr<'a> {
     }
 
     /// 目标检测
-    pub fn detection(&mut self, image: &[u8]) -> anyhow::Result<Vec<Point>> {
+    pub fn detection(&mut self, image: &[u8]) -> anyhow::Result<Vec<BBox>> {
         // 将图片缩放到模型大小
         fn resize(image: &image::DynamicImage) -> image::RgbImage {
             let x = MODEL_WIDTH as f32 / image.width() as f32;
@@ -208,9 +208,9 @@ impl<'a> Ddddocr<'a> {
                 onnxruntime::ndarray::Dim<onnxruntime::ndarray::IxDynImpl>,
             >,
             original_image: image::DynamicImage,
-        ) -> Vec<Point> {
+        ) -> Vec<BBox> {
             #[derive(Debug, Clone, Copy)]
-            struct Point {
+            struct BBox {
                 scores: f32,
                 x1: f32,
                 y1: f32,
@@ -250,7 +250,7 @@ impl<'a> Ddddocr<'a> {
                 y1 = (y1 as f32 + GRIDS[i * 2 + 1] as f32) * EXPANDED_STRIDES[i] as f32;
                 x2 = x2.exp() as f32 * EXPANDED_STRIDES[i] as f32;
                 y2 = y2.exp() as f32 * EXPANDED_STRIDES[i] as f32;
-                result.push(Point {
+                result.push(BBox {
                     scores,
                     x1: (x1 - x2 / 2f32) / gain,
                     y1: (y1 - y2 / 2f32) / gain,
@@ -309,7 +309,7 @@ impl<'a> Ddddocr<'a> {
                 } else if point.y2 > original_image.height() as f32 {
                     point.y2 = (original_image.height() - 1) as f32;
                 }
-                new_result.push(crate::Point {
+                new_result.push(crate::BBox {
                     x1: point.x1 as u32,
                     y1: point.y1 as u32,
                     x2: point.x2 as u32,
@@ -425,7 +425,7 @@ mod tests {
     #[test]
     fn detection() {
         let mut ddddocr = ddddocr_detection().unwrap();
-        let input = include_bytes!("../image/6.jpg");
+        let input = include_bytes!("../image/2.png");
         let result = ddddocr.detection(input).unwrap();
         println!("{:?}", result);
 
