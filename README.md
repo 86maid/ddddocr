@@ -14,7 +14,7 @@ ddddocr rust 版本，ocr_api_server rust 版本，不依赖 opencv 库，跨平
 
 开启 `cuda` 需要 `cuda 11` 的 `nvidia gpu` (不确定 `cuda 10` 是否有效)
 
-## 如果你不想从源代码构建，这里有编译好的[二进制版本](https://github.com/xchuang233/ddddocr/releases)。
+## 如果你不想从源代码构建，这里有编译好的[二进制版本](https://gitee.com/xchuang233/ddddocr/releases/)。
 
 支持使用 `ddddocr` 调用 `dddd_trainer` 训练后的自定义模型。
 
