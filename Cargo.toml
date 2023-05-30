@@ -2,15 +2,12 @@
 name = "ddddocr"
 version = "0.1.0"
 edition = "2021"
-description = "ddddocr rust 版本，ocr_api_server rust 版本，不依赖 opencv 库，跨平台运行。"
-repository = "https://github.com/86maid/ddddocr"
-license = "MIT"
 
 [features]
 cuda = ["onnxruntime/cuda"]
 
 [dependencies]
-onnxruntime = { git = "https://github.com/haixuanTao/onnxruntime-rs.git", branch = "master", version = "*" }
+onnxruntime = { git = "https://github.com/haixuanTao/onnxruntime-rs.git", branch = "master" }
 # 这个版本不支持 cuda
 # onnxruntime = "0.0.14"
 lazy_static = "1.4.0"
