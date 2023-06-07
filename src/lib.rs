@@ -164,7 +164,7 @@ where
     )
 }
 
-/// 坑位匹配
+/// 坑位匹配。
 pub fn slide_comparison<I1, I2>(
     target_image: I1,
     background_image: I2,
@@ -212,7 +212,7 @@ where
     Ok((start_x, start_y))
 }
 
-/// 坑位匹配
+/// 坑位匹配。
 pub fn slide_comparison_with_path<P1, P2>(
     target_image: P1,
     background_image: P2,
