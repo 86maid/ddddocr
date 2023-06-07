@@ -1,5 +1,5 @@
 /// 初始化内容识别。
-pub fn ddddocr_classification<'a>() -> anyhow::Result<Ddddocr> {
+pub fn ddddocr_classification() -> anyhow::Result<Ddddocr> {
     let charset = include_str!("../model/common.json");
     Ddddocr::new(
         include_bytes!("../model/common.onnx"),
@@ -8,7 +8,7 @@ pub fn ddddocr_classification<'a>() -> anyhow::Result<Ddddocr> {
 }
 
 /// 使用旧模型初始化内容识别。
-pub fn ddddocr_classification_old<'a>() -> anyhow::Result<Ddddocr> {
+pub fn ddddocr_classification_old() -> anyhow::Result<Ddddocr> {
     let charset = include_str!("../model/common_old.json");
     Ddddocr::new(
         include_bytes!("../model/common_old.onnx"),
@@ -17,7 +17,7 @@ pub fn ddddocr_classification_old<'a>() -> anyhow::Result<Ddddocr> {
 }
 
 /// 初始化目标检测。
-pub fn ddddocr_detection<'a>() -> anyhow::Result<Ddddocr> {
+pub fn ddddocr_detection() -> anyhow::Result<Ddddocr> {
     Ddddocr::new_model(include_bytes!("../model/common_det.onnx"))
 }
 
@@ -244,7 +244,7 @@ where
 /// `../model/common_old_charset.json`
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Charset {
-    /// 是否为 cnn 模型
+    /// 是否为 cnn 模型。
     pub word: bool,
 
     /// 宽度，高度，如果宽度为 -1，则自动调整，高度必须为 16 的倍数。
