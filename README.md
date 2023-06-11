@@ -1,5 +1,5 @@
 # 简介
-ddddocr rust 版本，ocr_api_server rust 版本，二进制版本，验证码识别，不依赖 opencv 库，跨平台运行，OCR API server。
+ddddocr rust 版本，ocr_api_server rust 版本，二进制版本，验证码识别，不依赖 opencv 库，跨平台运行，a simple ocr api server, very easy to deploy。
 
 `lib.rs` 实现了 `ddddocr`。
 
