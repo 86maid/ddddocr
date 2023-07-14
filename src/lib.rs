@@ -65,7 +65,7 @@ where
     // 图片转换到灰度图
     let target_image = image::imageops::grayscale(
         &image::imageops::crop_imm(
-            &mut image,
+            &image,
             target_x,
             target_y,
             end_x - target_x,
