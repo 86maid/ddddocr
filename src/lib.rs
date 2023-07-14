@@ -46,16 +46,12 @@ where
                 if target_x != 0 && end_x == 0 {
                     end_x = x;
                 }
-            } else {
-                if target_y == 0 {
-                    target_y = y;
-                    end_y = 0;
-                } else {
-                    if y < target_y {
-                        target_y = y;
-                        end_y = 0;
-                    }
-                }
+            } else if target_y == 0 {
+                target_y = y;
+                end_y = 0;
+            } else if y < target_y {
+                target_y = y;
+                end_y = 0;
             }
         }
         if target_x == 0 && target_y != 0 {
@@ -636,7 +632,7 @@ impl Ddddocr {
         let w = MODEL_WIDTH as usize;
         let h = MODEL_HEIGHT as usize;
         let mut input_tensor =
-            onnxruntime::ndarray::Array::from_shape_vec((1, 3, h, w), vec![0f32; 1 * 3 * h * w])?;
+            onnxruntime::ndarray::Array::from_shape_vec((1, 3, h, w), vec![0f32; 3 * h * w])?;
         for i in 0..image.width() {
             for j in 0..image.height() {
                 // 为什么这里的 x 和 y 是相反的？
@@ -667,10 +663,10 @@ impl Ddddocr {
             let mut y1 = output_tensor[[0, i, 1]];
             let mut x2 = output_tensor[[0, i, 2]];
             let mut y2 = output_tensor[[0, i, 3]];
-            x1 = (x1 as f32 + GRIDS[i * 2 + 0] as f32) * EXPANDED_STRIDES[i] as f32;
-            y1 = (y1 as f32 + GRIDS[i * 2 + 1] as f32) * EXPANDED_STRIDES[i] as f32;
-            x2 = x2.exp() as f32 * EXPANDED_STRIDES[i] as f32;
-            y2 = y2.exp() as f32 * EXPANDED_STRIDES[i] as f32;
+            x1 = (x1 + GRIDS[i * 2] as f32) * EXPANDED_STRIDES[i] as f32;
+            y1 = (y1 + GRIDS[i * 2 + 1] as f32) * EXPANDED_STRIDES[i] as f32;
+            x2 = x2.exp() * EXPANDED_STRIDES[i] as f32;
+            y2 = y2.exp() * EXPANDED_STRIDES[i] as f32;
             result.push(ScoresBBox {
                 scores,
                 x1: (x1 - x2 / 2f32) / gain,
@@ -692,15 +688,11 @@ impl Ddddocr {
             areas.push((i.x2 - i.x1 + 1f32) * (i.y2 - i.y1 + 1f32));
         }
         let mut array = scores;
-        let mut order = (0..array.len()).into_iter().collect::<Vec<_>>();
+        let mut order = (0..array.len()).collect::<Vec<_>>();
         for i in 0..array.len() {
             for j in i + 1..array.len() {
-                let temp = array[i];
-                array[i] = array[j];
-                array[j] = temp;
-                let temp = order[i];
-                order[i] = order[j];
-                order[j] = temp;
+                array.swap(i, j);
+                order.swap(i, j);
             }
         }
         let mut keep = Vec::new();

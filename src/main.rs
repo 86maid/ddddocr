@@ -93,7 +93,7 @@ async fn handle_abc(
 ) -> impl Responder {
     let (option, image_type, result_type) = args.into_inner();
     let map_ok = |value: String| {
-        return if result_type == "json" {
+        if result_type == "json" {
             if option == "det" || option == "match" || option == "compare" {
                 format!(r#"{{"status":200,"result":{}}}"#, value)
             } else {
@@ -104,11 +104,11 @@ async fn handle_abc(
                 .to_string()
             }
         } else {
-            value.to_string()
-        };
+            value
+        }
     };
     let map_error = |value: String| {
-        return if result_type == "json" {
+        if result_type == "json" {
             serde_json::json!({
                 "status": 404,
                 "msg": value,
@@ -116,14 +116,14 @@ async fn handle_abc(
             .to_string()
         } else {
             "".to_string()
-        };
+        }
     };
     unsafe {
         let inner = || async {
             match option.as_str() {
                 "ocr" if OCR_POOL.is_some() => {
                     let file = get_file(image_type, content, request).await?;
-                    ensure!(file.iter().find(|v| v.0 == "image").is_some() && file.len() == 1);
+                    ensure!(file.iter().any(|v| v.0 == "image") && file.len() == 1);
                     let file = file[0].1.clone();
                     let pool = OCR_POOL.as_ref().unwrap();
                     let mut ddddocr = pool.pop().await;
@@ -137,7 +137,7 @@ async fn handle_abc(
                 }
                 "old" if OLD_POOL.is_some() => {
                     let file = get_file(image_type, content, request).await?;
-                    ensure!(file.iter().find(|v| v.0 == "image").is_some() && file.len() == 1);
+                    ensure!(file.iter().any(|v| v.0 == "image") && file.len() == 1);
                     let file = file[0].1.clone();
                     let pool = OLD_POOL.as_ref().unwrap();
                     let mut ddddocr = pool.pop().await;
@@ -200,7 +200,7 @@ async fn handle_abc(
         };
         inner()
             .await
-            .map(|v| map_ok(v))
+            .map(map_ok)
             .unwrap_or_else(|v| map_error(v.to_string()))
     }
 }
