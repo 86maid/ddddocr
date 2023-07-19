@@ -116,7 +116,7 @@ println!("{:?}", res);
 ## 内容识别
 ```rust
 let image = std::fs::read("target.png").unwrap();
-let mut ocr = ddddocr::ddddocr_classification().unwrap();
+let ocr = ddddocr::ddddocr_classification().unwrap();
 let res = ocr.classification(image).unwrap();
 println!("{:?}", res);
 ```
@@ -124,7 +124,7 @@ println!("{:?}", res);
 ## 旧模型
 ```rust
 let image = std::fs::read("target.png").unwrap();
-let mut ocr = ddddocr::ddddocr_classification_old().unwrap();
+let ocr = ddddocr::ddddocr_classification_old().unwrap();
 let res = ocr.classification(image).unwrap();
 println!("{:?}", res);
 ```
@@ -149,7 +149,7 @@ OCR部分应该已经有很多人做了测试，在这里就放一部分网友�
 # 目标检测
 ```rust
 let image = std::fs::read("target.png").unwrap();
-let mut det = ddddocr::ddddocr_detection().unwrap();
+let det = ddddocr::ddddocr_detection().unwrap();
 let res = det.detection(image).unwrap();
 println!("{:?}", res);
 ```
