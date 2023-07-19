@@ -31,7 +31,7 @@ where
     let background_image = image::load_from_memory(background_image.as_ref())?;
 
     // 裁剪图片
-    let mut image = target_image.to_rgba8();
+    let image = target_image.to_rgba8();
     let mut target_x = 0;
     let mut target_y = 0;
     let mut end_x = 0;
@@ -491,7 +491,7 @@ impl Ddddocr {
     }
 
     /// 内容识别。
-    pub fn classification<I>(&mut self, image: I) -> anyhow::Result<String>
+    pub fn classification<I>(&self, image: I) -> anyhow::Result<String>
     where
         I: AsRef<[u8]>,
     {
@@ -588,7 +588,7 @@ impl Ddddocr {
     }
 
     /// 内容识别。
-    pub fn classification_with_path<P>(&mut self, path: P) -> anyhow::Result<String>
+    pub fn classification_with_path<P>(&self, path: P) -> anyhow::Result<String>
     where
         P: AsRef<std::path::Path>,
     {
@@ -596,7 +596,7 @@ impl Ddddocr {
     }
 
     /// 目标检测。
-    pub fn detection<I>(&mut self, image: I) -> anyhow::Result<Vec<BBox>>
+    pub fn detection<I>(&self, image: I) -> anyhow::Result<Vec<BBox>>
     where
         I: AsRef<[u8]>,
     {
@@ -750,7 +750,7 @@ impl Ddddocr {
     }
 
     /// 目标检测。
-    pub fn detection_with_path<P>(&mut self, path: P) -> anyhow::Result<Vec<BBox>>
+    pub fn detection_with_path<P>(&self, path: P) -> anyhow::Result<Vec<BBox>>
     where
         P: AsRef<std::path::Path>,
     {
@@ -766,7 +766,7 @@ mod tests {
 
     #[test]
     fn classification() {
-        let mut ddddocr = ddddocr_classification().unwrap();
+        let ddddocr = ddddocr_classification().unwrap();
         println!(
             "{}",
             ddddocr
@@ -795,7 +795,7 @@ mod tests {
 
     #[test]
     fn classification_old() {
-        let mut ddddocr = ddddocr_classification_old().unwrap();
+        let ddddocr = ddddocr_classification_old().unwrap();
         println!(
             "{}",
             ddddocr
@@ -824,7 +824,7 @@ mod tests {
 
     #[test]
     fn detection() {
-        let mut ddddocr = ddddocr_detection().unwrap();
+        let ddddocr = ddddocr_detection().unwrap();
         let input = include_bytes!("../image/5.jpg");
         let result = ddddocr.detection(input).unwrap();
         println!("{:?}", result);
