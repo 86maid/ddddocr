@@ -65,7 +65,7 @@ Caused by:
 
 注意，如果你开启了 `cuda` 特性，则要下载 `gpu` 版本的 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.8.1)，可以设置 `ORT_STRATEGY` 的值为 `download ORT_USE_CUDA=1` 自动下载依赖。
 
-强烈建议使用 `system` 策略，不然编译半天。
+如果你在 linux 编译失败，尝试使用 `apt install binutils`，然后 `cargo clean`，再重新编译。
 
 其他疑难杂症请访问 [onnxruntime-rs](https://github.com/nbigaouette/onnxruntime-rs)。
 
