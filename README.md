@@ -67,6 +67,8 @@ Caused by:
 
 如果你在 linux 编译失败，尝试使用 `apt install binutils`，然后 `cargo clean`，再重新编译。
 
+如果你 linux 和 osx 版本编译失败，尝试使用 `cargo zigbuild`，这将使用 zig 的链接器，本人亲测，有奇效！
+
 其他疑难杂症请访问 [onnxruntime-rs](https://github.com/nbigaouette/onnxruntime-rs)。
 
 # 滑块部分
