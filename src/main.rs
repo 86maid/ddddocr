@@ -19,7 +19,7 @@ static mut FLAG: i32 = 0;
 
 struct Pool {
     w: tokio::sync::mpsc::Sender<Ddddocr>,
-    r: tokio::sync::Mutex<tokio::sync::mpsc::Receiver<Ddddocr>>,
+    r: tokio::sync::mpsc::Receiver<Ddddocr>,
 }
 
 #[derive(Parser, Debug)]
@@ -125,8 +125,8 @@ async fn handle_abc(
                     let file = get_file(image_type, content, request).await?;
                     ensure!(file.iter().any(|v| v.0 == "image") && file.len() == 1);
                     let file = file[0].1.clone();
-                    let pool = OCR_POOL.as_ref().unwrap();
-                    let mut ddddocr = pool.pop().await;
+                    let pool = OCR_POOL.as_mut().unwrap();
+                    let ddddocr = pool.pop().await;
                     let result = tokio::task::spawn_blocking(move || {
                         (ddddocr.classification(file), ddddocr)
                     })
@@ -139,8 +139,8 @@ async fn handle_abc(
                     let file = get_file(image_type, content, request).await?;
                     ensure!(file.iter().any(|v| v.0 == "image") && file.len() == 1);
                     let file = file[0].1.clone();
-                    let pool = OLD_POOL.as_ref().unwrap();
-                    let mut ddddocr = pool.pop().await;
+                    let pool = OLD_POOL.as_mut().unwrap();
+                    let ddddocr = pool.pop().await;
                     let result = tokio::task::spawn_blocking(move || {
                         (ddddocr.classification(file), ddddocr)
                     })
@@ -156,8 +156,8 @@ async fn handle_abc(
                         "找不到名为 image 的文件"
                     );
                     let file = file[0].1.clone();
-                    let pool = DET_POOL.as_ref().unwrap();
-                    let mut ddddocr = pool.pop().await;
+                    let pool = DET_POOL.as_mut().unwrap();
+                    let ddddocr = pool.pop().await;
                     let result =
                         tokio::task::spawn_blocking(move || (ddddocr.detection(file), ddddocr))
                             .await
@@ -257,10 +257,7 @@ async fn get_file(
 impl Pool {
     fn with_capacity(capacity: usize) -> Self {
         let (w, r) = tokio::sync::mpsc::channel(capacity);
-        Self {
-            w,
-            r: tokio::sync::Mutex::new(r),
-        }
+        Self { w, r }
     }
 
     fn try_send(&self, value: Ddddocr) {
@@ -271,8 +268,8 @@ impl Pool {
         self.w.send(value).await.unwrap();
     }
 
-    async fn pop(&self) -> Ddddocr {
-        self.r.lock().await.recv().await.unwrap()
+    async fn pop(&mut self) -> Ddddocr {
+        self.r.recv().await.unwrap()
     }
 }
 
@@ -335,7 +332,7 @@ async fn main() {
     }
 
     if args.full || args.ocr || args.old || args.det || args.slide_match || args.slide_compare {
-        println!("正在监听中...");
+        println!("正在监听 {}:{}", args.address, args.port);
         HttpServer::new(|| App::new().service(ping).service(handle_abc))
             .bind((args.address, args.port))
             .expect("地址绑定失败")
