@@ -65,7 +65,9 @@ Caused by:
 
 注意，如果你开启了 `cuda` 特性，则要下载 `gpu` 版本的 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.8.1)，可以设置 `ORT_STRATEGY` 的值为 `download ORT_USE_CUDA=1` 自动下载依赖。
 
-强烈建议使用 `system` 策略，不然编译半天。
+如果你在 linux 编译失败，尝试使用 `apt install binutils`，然后 `cargo clean`，再重新编译。
+
+如果你 linux 和 osx 版本编译失败，尝试使用 `cargo zigbuild`，这将使用 zig 的链接器，本人亲测，有奇效！
 
 其他疑难杂症请访问 [onnxruntime-rs](https://github.com/nbigaouette/onnxruntime-rs)。
 
@@ -116,7 +118,7 @@ println!("{:?}", res);
 ## 内容识别
 ```rust
 let image = std::fs::read("target.png").unwrap();
-let mut ocr = ddddocr::ddddocr_classification().unwrap();
+let ocr = ddddocr::ddddocr_classification().unwrap();
 let res = ocr.classification(image).unwrap();
 println!("{:?}", res);
 ```
@@ -124,7 +126,7 @@ println!("{:?}", res);
 ## 旧模型
 ```rust
 let image = std::fs::read("target.png").unwrap();
-let mut ocr = ddddocr::ddddocr_classification_old().unwrap();
+let ocr = ddddocr::ddddocr_classification_old().unwrap();
 let res = ocr.classification(image).unwrap();
 println!("{:?}", res);
 ```
@@ -149,7 +151,7 @@ OCR部分应该已经有很多人做了测试，在这里就放一部分网友�
 # 目标检测
 ```rust
 let image = std::fs::read("target.png").unwrap();
-let mut det = ddddocr::ddddocr_detection().unwrap();
+let det = ddddocr::ddddocr_detection().unwrap();
 let res = det.detection(image).unwrap();
 println!("{:?}", res);
 ```
