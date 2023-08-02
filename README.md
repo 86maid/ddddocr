@@ -5,7 +5,6 @@ ddddocr rust 版本，ocr_api_server rust 版本，二进制版本，验证码�
 
 `main.rs` 实现了 `ocr_api_server`。
 
-
 `model` 目录是模型与字符集。
 
 依赖本库 `ddddocr = { git = "https://github.com/86maid/ddddocr.git", branch = "master" }`  
@@ -118,7 +117,7 @@ println!("{:?}", res);
 ## 内容识别
 ```rust
 let image = std::fs::read("target.png").unwrap();
-let ocr = ddddocr::ddddocr_classification().unwrap();
+let mut ocr = ddddocr::ddddocr_classification().unwrap();
 let res = ocr.classification(image).unwrap();
 println!("{:?}", res);
 ```
@@ -126,7 +125,7 @@ println!("{:?}", res);
 ## 旧模型
 ```rust
 let image = std::fs::read("target.png").unwrap();
-let ocr = ddddocr::ddddocr_classification_old().unwrap();
+let mut ocr = ddddocr::ddddocr_classification_old().unwrap();
 let res = ocr.classification(image).unwrap();
 println!("{:?}", res);
 ```
@@ -151,7 +150,7 @@ OCR部分应该已经有很多人做了测试，在这里就放一部分网友�
 # 目标检测
 ```rust
 let image = std::fs::read("target.png").unwrap();
-let det = ddddocr::ddddocr_detection().unwrap();
+let mut det = ddddocr::ddddocr_detection().unwrap();
 let res = det.detection(image).unwrap();
 println!("{:?}", res);
 ```

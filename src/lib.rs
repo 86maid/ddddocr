@@ -1,5 +1,5 @@
 /// 初始化内容识别。
-pub fn ddddocr_classification() -> anyhow::Result<Ddddocr> {
+pub fn ddddocr_classification() -> anyhow::Result<Ddddocr<'static>> {
     let charset = include_str!("../model/common.json");
     Ddddocr::new(
         include_bytes!("../model/common.onnx"),
@@ -8,7 +8,7 @@ pub fn ddddocr_classification() -> anyhow::Result<Ddddocr> {
 }
 
 /// 使用旧模型初始化内容识别。
-pub fn ddddocr_classification_old() -> anyhow::Result<Ddddocr> {
+pub fn ddddocr_classification_old() -> anyhow::Result<Ddddocr<'static>> {
     let charset = include_str!("../model/common_old.json");
     Ddddocr::new(
         include_bytes!("../model/common_old.onnx"),
@@ -17,7 +17,7 @@ pub fn ddddocr_classification_old() -> anyhow::Result<Ddddocr> {
 }
 
 /// 初始化目标检测。
-pub fn ddddocr_detection() -> anyhow::Result<Ddddocr> {
+pub fn ddddocr_detection() -> anyhow::Result<Ddddocr<'static>> {
     Ddddocr::new_model(include_bytes!("../model/common_det.onnx"))
 }
 
@@ -350,19 +350,19 @@ const MODEL_HEIGHT: u32 = 416;
 const STRIDES: [u32; 3] = [8, 16, 32];
 
 #[derive(Debug)]
-pub struct Ddddocr {
+pub struct Ddddocr<'a> {
     diy: bool,
-    session: std::sync::Mutex<onnxruntime::session::Session<'static>>,
-    charset: Option<Charset>,
+    session: onnxruntime::session::Session<'a>,
+    charset: Option<std::borrow::Cow<'a, Charset>>,
 }
 
-unsafe impl Send for Ddddocr {}
+unsafe impl<'a> Send for Ddddocr<'a> {}
 
-unsafe impl Sync for Ddddocr {}
+unsafe impl<'a> Sync for Ddddocr<'a> {}
 
 /// 因为自带模型和自定义模型的参数不同，
 /// 所有在创建模型的时候会自动判断是否为自定义模型。
-impl Ddddocr {
+impl<'a> Ddddocr<'a> {
     /// 从内存加载模型和字符集，
     /// 只能使用内容识别，
     /// 使用目标检测会恐慌。
@@ -372,12 +372,26 @@ impl Ddddocr {
     {
         Ok(Self {
             diy: is_diy(model.as_ref()),
-            session: std::sync::Mutex::new(
-                ENVIRONMENT
-                    .new_session_builder()?
-                    .with_model_from_memory(model)?,
-            ),
-            charset: Some(charset),
+            session: ENVIRONMENT
+                .new_session_builder()?
+                .with_model_from_memory(model)?,
+            charset: Some(std::borrow::Cow::Owned(charset)),
+        })
+    }
+
+    /// 从内存加载模型和字符集，
+    /// 只能使用内容识别，
+    /// 使用目标检测会恐慌。
+    pub fn new_ref<MODEL>(model: MODEL, charset: &'a Charset) -> anyhow::Result<Self>
+    where
+        MODEL: AsRef<[u8]>,
+    {
+        Ok(Self {
+            diy: is_diy(model.as_ref()),
+            session: ENVIRONMENT
+                .new_session_builder()?
+                .with_model_from_memory(model)?,
+            charset: Some(std::borrow::Cow::Borrowed(charset)),
         })
     }
 
@@ -399,6 +413,28 @@ impl Ddddocr {
         })
     }
 
+    /// 从内存加载模型和字符集，
+    /// 只能使用内容识别，
+    /// 使用目标检测会恐慌。
+    #[cfg(feature = "cuda")]
+    pub fn new_cuda_ref<MODEL>(
+        model: MODEL,
+        charset: &'a Charset,
+        device_id: i32,
+    ) -> anyhow::Result<Self>
+    where
+        MODEL: AsRef<[u8]>,
+    {
+        Ok(Self {
+            diy: Self::is_diy(model.as_ref()),
+            session: ENVIRONMENT
+                .new_session_builder()?
+                .use_cuda(device_id)?
+                .with_model_from_memory(model)?,
+            charset: Some(std::borrow::Cow::Borrowed(charset)),
+        })
+    }
+
     /// 从内存加载模型，
     /// 只能使用目标检测，
     /// 使用内容识别会恐慌。
@@ -408,11 +444,9 @@ impl Ddddocr {
     {
         Ok(Self {
             diy: is_diy(model.as_ref()),
-            session: std::sync::Mutex::new(
-                ENVIRONMENT
-                    .new_session_builder()?
-                    .with_model_from_memory(model)?,
-            ),
+            session: ENVIRONMENT
+                .new_session_builder()?
+                .with_model_from_memory(model)?,
             charset: None,
         })
     }
@@ -491,7 +525,7 @@ impl Ddddocr {
     }
 
     /// 内容识别。
-    pub fn classification<I>(&self, image: I) -> anyhow::Result<String>
+    pub fn classification<I>(&mut self, image: I) -> anyhow::Result<String>
     where
         I: AsRef<[u8]>,
     {
@@ -563,16 +597,15 @@ impl Ddddocr {
             }
         }
 
-        let mut lock = self.session.lock().unwrap();
         if word {
-            Ok(lock.run::<_, i64, _>(vec![tensor])?[1]
+            Ok(self.session.run::<_, i64, _>(vec![tensor])?[1]
                 .iter()
                 .map(|&v| charset[v as usize].to_string())
                 .collect::<String>())
         } else {
             // 过滤无效字符
             let mut last_item = 0;
-            Ok(lock.run::<_, i64, _>(vec![tensor])?[0]
+            Ok(self.session.run::<_, i64, _>(vec![tensor])?[0]
                 .iter()
                 .filter(|&&v| {
                     if v != 0 && v != last_item {
@@ -588,15 +621,15 @@ impl Ddddocr {
     }
 
     /// 内容识别。
-    pub fn classification_with_path<P>(&self, path: P) -> anyhow::Result<String>
+    pub fn classification_with_path<P>(&mut self, path: P) -> anyhow::Result<String>
     where
         P: AsRef<std::path::Path>,
     {
-        self.classification(&std::fs::read(path)?)
+        self.classification(std::fs::read(path)?)
     }
 
     /// 目标检测。
-    pub fn detection<I>(&self, image: I) -> anyhow::Result<Vec<BBox>>
+    pub fn detection<I>(&mut self, image: I) -> anyhow::Result<Vec<BBox>>
     where
         I: AsRef<[u8]>,
     {
@@ -648,8 +681,7 @@ impl Ddddocr {
         // 然后对每个物体进行检测，如果其得分小于 SCORE_THR，则跳过该物体
         // 接着，对物体的坐标进行调整，最后将调整后的坐标加入到结果列表中
         // 最后，对结果列表中的物体进行非极大值抑制 (NMS) 处理，得到最终的检测结果
-        let mut lock = self.session.lock().unwrap();
-        let output_tensor = &lock.run::<_, f32, _>(vec![input_tensor])?[0];
+        let output_tensor = &self.session.run::<_, f32, _>(vec![input_tensor])?[0];
         let x = MODEL_WIDTH as f32 / original_image.width() as f32;
         let y = MODEL_HEIGHT as f32 / original_image.height() as f32;
         let gain = x.min(y);
@@ -750,11 +782,11 @@ impl Ddddocr {
     }
 
     /// 目标检测。
-    pub fn detection_with_path<P>(&self, path: P) -> anyhow::Result<Vec<BBox>>
+    pub fn detection_with_path<P>(&mut self, path: P) -> anyhow::Result<Vec<BBox>>
     where
         P: AsRef<std::path::Path>,
     {
-        self.detection(&std::fs::read(path)?)
+        self.detection(std::fs::read(path)?)
     }
 }
 
@@ -766,7 +798,7 @@ mod tests {
 
     #[test]
     fn classification() {
-        let ddddocr = ddddocr_classification().unwrap();
+        let mut ddddocr = ddddocr_classification().unwrap();
         println!(
             "{}",
             ddddocr
@@ -795,7 +827,7 @@ mod tests {
 
     #[test]
     fn classification_old() {
-        let ddddocr = ddddocr_classification_old().unwrap();
+        let mut ddddocr = ddddocr_classification_old().unwrap();
         println!(
             "{}",
             ddddocr
@@ -824,7 +856,7 @@ mod tests {
 
     #[test]
     fn detection() {
-        let ddddocr = ddddocr_detection().unwrap();
+        let mut ddddocr = ddddocr_detection().unwrap();
         let input = include_bytes!("../image/5.jpg");
         let result = ddddocr.detection(input).unwrap();
         println!("{:?}", result);

@@ -12,15 +12,10 @@ use ddddocr::{Charset, Ddddocr, MapJson};
 use futures_util::StreamExt;
 use std::{fmt::Debug, str::FromStr};
 
-static mut OCR_POOL: Option<Pool> = None;
-static mut OLD_POOL: Option<Pool> = None;
-static mut DET_POOL: Option<Pool> = None;
+static mut OCR: Option<Ddddocr<'static>> = None;
+static mut OLD: Option<Ddddocr<'static>> = None;
+static mut DET: Option<Ddddocr<'static>> = None;
 static mut FLAG: i32 = 0;
-
-struct Pool {
-    w: tokio::sync::mpsc::Sender<Ddddocr>,
-    r: tokio::sync::mpsc::Receiver<Ddddocr>,
-}
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -66,18 +61,6 @@ struct Args {
     /// 开启坑位识别
     #[arg(long)]
     slide_compare: bool,
-
-    /// 创建多个内容识别实例，提高并发的性能
-    #[arg(long, default_value_t = 1)]
-    ocr_count: usize,
-
-    /// 创建多个旧版模型内容识别实例，提高并发的性能
-    #[arg(long, default_value_t = 1)]
-    old_count: usize,
-
-    /// 创建多个目标检测实例，提高并发的性能
-    #[arg(long, default_value_t = 1)]
-    det_count: usize,
 }
 
 #[route("/ping", method = "GET", method = "POST")]
@@ -121,49 +104,40 @@ async fn handle_abc(
     unsafe {
         let inner = || async {
             match option.as_str() {
-                "ocr" if OCR_POOL.is_some() => {
+                "ocr" => {
                     let file = get_file(image_type, content, request).await?;
                     ensure!(file.iter().any(|v| v.0 == "image") && file.len() == 1);
                     let file = file[0].1.clone();
-                    let pool = OCR_POOL.as_mut().unwrap();
-                    let ddddocr = pool.pop().await;
-                    let result = tokio::task::spawn_blocking(move || {
-                        (ddddocr.classification(file), ddddocr)
-                    })
-                    .await
-                    .unwrap();
-                    pool.push(result.1).await;
-                    Ok(result.0?)
+                    let ddddocr = OCR.as_mut().unwrap();
+                    Ok(
+                        tokio::task::spawn_blocking(move || ddddocr.classification(file))
+                            .await
+                            .unwrap()?,
+                    )
                 }
-                "old" if OLD_POOL.is_some() => {
+                "old" => {
                     let file = get_file(image_type, content, request).await?;
                     ensure!(file.iter().any(|v| v.0 == "image") && file.len() == 1);
                     let file = file[0].1.clone();
-                    let pool = OLD_POOL.as_mut().unwrap();
-                    let ddddocr = pool.pop().await;
-                    let result = tokio::task::spawn_blocking(move || {
-                        (ddddocr.classification(file), ddddocr)
-                    })
-                    .await
-                    .unwrap();
-                    pool.push(result.1).await;
-                    Ok(result.0?)
+                    let ddddocr = OLD.as_mut().unwrap();
+                    Ok(
+                        tokio::task::spawn_blocking(move || ddddocr.classification(file))
+                            .await
+                            .unwrap()?,
+                    )
                 }
-                "det" if DET_POOL.is_some() => {
+                "det" => {
                     let file = get_file(image_type, content, request).await?;
                     ensure!(
                         file.len() == 1 && file[0].0 == "image",
                         "找不到名为 image 的文件"
                     );
                     let file = file[0].1.clone();
-                    let pool = DET_POOL.as_mut().unwrap();
-                    let ddddocr = pool.pop().await;
-                    let result =
-                        tokio::task::spawn_blocking(move || (ddddocr.detection(file), ddddocr))
-                            .await
-                            .unwrap();
-                    pool.push(result.1).await;
-                    Ok(result.0?.json())
+                    let ddddocr = DET.as_mut().unwrap();
+                    Ok(tokio::task::spawn_blocking(move || ddddocr.detection(file))
+                        .await
+                        .unwrap()?
+                        .json())
                 }
                 "match" if FLAG & 1 == 1 => {
                     let file = get_file(image_type, content, request).await?;
@@ -254,25 +228,6 @@ async fn get_file(
     Ok(result)
 }
 
-impl Pool {
-    fn with_capacity(capacity: usize) -> Self {
-        let (w, r) = tokio::sync::mpsc::channel(capacity);
-        Self { w, r }
-    }
-
-    fn try_send(&self, value: Ddddocr) {
-        self.w.try_send(value).unwrap();
-    }
-
-    async fn push(&self, value: Ddddocr) {
-        self.w.send(value).await.unwrap();
-    }
-
-    async fn pop(&mut self) -> Ddddocr {
-        self.r.recv().await.unwrap()
-    }
-}
-
 #[actix_web::main]
 async fn main() {
     let args = Args::parse();
@@ -280,44 +235,32 @@ async fn main() {
 
     unsafe {
         if args.ocr || args.full {
-            let pool = Pool::with_capacity(args.ocr_count);
             let model = std::fs::read(args.ocr_path.clone() + ".onnx").expect("打开模型失败");
             let charset =
                 std::fs::read_to_string(args.ocr_path.clone() + ".json").expect("打开字符集失败");
             diy = ddddocr::is_diy(&model);
-            for _ in 0..args.ocr_count {
-                pool.try_send(
-                    Ddddocr::new(&model, Charset::from_str(&charset).expect("解析字符集失败"))
-                        .expect("开启内容识别失败"),
-                );
-            }
-            OCR_POOL = Some(pool);
-            println!("开启内容识别成功，实例数量 {}", args.ocr_count);
+            OCR = Some(
+                Ddddocr::new(&model, Charset::from_str(&charset).expect("解析字符集失败"))
+                    .expect("开启内容识别失败"),
+            );
+            println!("开启内容识别成功");
         }
 
         if args.old || args.full && !diy {
-            let pool = Pool::with_capacity(args.old_count);
             let model = std::fs::read(args.ocr_path.clone() + "_old.onnx").expect("打开模型失败");
             let charset =
                 std::fs::read_to_string(args.ocr_path + "_old.json").expect("打开字符集失败");
-            for _ in 0..args.old_count {
-                pool.try_send(
-                    Ddddocr::new(&model, Charset::from_str(&charset).expect("解析字符集失败"))
-                        .expect("开启旧版模型内容识别失败"),
-                );
-            }
-            OLD_POOL = Some(pool);
-            println!("开启旧版模型内容识别成功，实例数量 {}", args.old_count);
+            OLD = Some(
+                Ddddocr::new(&model, Charset::from_str(&charset).expect("解析字符集失败"))
+                    .expect("开启旧版模型内容识别失败"),
+            );
+            println!("开启旧版模型内容识别成功");
         }
 
         if args.det || args.full {
-            let pool = Pool::with_capacity(args.det_count);
             let model = std::fs::read(&args.det_path).expect("打开模型失败");
-            for _ in 0..args.det_count {
-                pool.try_send(Ddddocr::new_model(&model).expect("开启目标检测失败"));
-            }
-            DET_POOL = Some(pool);
-            println!("开启目标检测成功，实例数量 {}", args.det_count);
+            DET = Some(Ddddocr::new_model(&model).expect("开启目标检测失败"));
+            println!("开启目标检测成功");
         }
 
         if args.slide_match || args.full {
