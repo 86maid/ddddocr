@@ -7,7 +7,8 @@ edition = "2021"
 cuda = ["onnxruntime/cuda"]
 
 [dependencies]
-onnxruntime = { git = "https://github.com/haixuanTao/onnxruntime-rs.git", branch = "master" }
+# 我把 ureq 改成了 reqwest
+onnxruntime = { git = "https://github.com/86maid/onnxruntime-rs.git", branch = "master" }
 # 这个版本不支持 cuda
 # onnxruntime = "0.0.14"
 lazy_static = "1.4.0"
