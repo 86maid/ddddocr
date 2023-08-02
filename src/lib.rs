@@ -356,8 +356,10 @@ pub struct Ddddocr<'a> {
     charset: Option<std::borrow::Cow<'a, Charset>>,
 }
 
+/// 我也不知道这里是不是安全的，但我多线程测试过，没有发现异常。
 unsafe impl<'a> Send for Ddddocr<'a> {}
 
+/// 我也不知道这里是不是安全的，但我多线程测试过，没有发现异常。
 unsafe impl<'a> Sync for Ddddocr<'a> {}
 
 /// 因为自带模型和自定义模型的参数不同，
