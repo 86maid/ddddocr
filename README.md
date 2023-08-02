@@ -184,9 +184,6 @@ Options:
       --det-path <DET_PATH>    目标检测模型路径 [default: model/common_det.onnx]
       --slide-match            开启滑块识别
       --slide-compare          开启坑位识别
-      --ocr-count <OCR_COUNT>  创建多个内容识别实例，提高并发的性能 [default: 1]
-      --old-count <OLD_COUNT>  创建多个旧版模型内容识别实例，提高并发的性能 [default: 1]
-      --det-count <DET_COUNT>  创建多个目标检测实例，提高并发的性能 [default: 1]
   -h, --help                   Print help
 ```
 
