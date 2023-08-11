@@ -30,8 +30,18 @@ where
     let target_image = image::load_from_memory(target_image.as_ref())?;
     let background_image = image::load_from_memory(background_image.as_ref())?;
 
+    anyhow::ensure!(
+        background_image.width() >= target_image.width(),
+        "背景图片的宽度必须大于等于目标图标的宽度"
+    );
+    anyhow::ensure!(
+        background_image.height() >= target_image.height(),
+        "背景图片的高度必须大于等于目标图标的高度"
+    );
+
     // 裁剪图片
     let image = target_image.to_rgba8();
+
     let mut target_x = 0;
     let mut target_y = 0;
     let mut end_x = 0;
@@ -122,6 +132,15 @@ where
 {
     let target_image = image::load_from_memory(target_image.as_ref())?;
     let background_image = image::load_from_memory(background_image.as_ref())?;
+
+    anyhow::ensure!(
+        background_image.width() >= target_image.width(),
+        "背景图片的宽度必须大于等于目标图标的宽度"
+    );
+    anyhow::ensure!(
+        background_image.height() >= target_image.height(),
+        "背景图片的高度必须大于等于目标图标的高度"
+    );
 
     // 使用 canny 进行边缘检测。然后对背景图片进行同样的处理
     // 接着，使用 match_template 函数进行模板匹配，得到匹配结果矩阵

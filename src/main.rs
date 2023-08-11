@@ -15,7 +15,7 @@ use std::{fmt::Debug, str::FromStr};
 static mut OCR: Option<Ddddocr<'static>> = None;
 static mut OLD: Option<Ddddocr<'static>> = None;
 static mut DET: Option<Ddddocr<'static>> = None;
-static mut FLAG: i32 = 0;
+static mut FLAG: u32 = 0;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -58,6 +58,10 @@ struct Args {
     #[arg(long)]
     slide_match: bool,
 
+    /// 开启简单滑块识别
+    #[arg(long)]
+    simple_slide_match: bool,
+
     /// 开启坑位识别
     #[arg(long)]
     slide_compare: bool,
@@ -77,14 +81,15 @@ async fn handle_abc(
     let (option, image_type, result_type) = args.into_inner();
     let map_ok = |value: String| {
         if result_type == "json" {
-            if option == "det" || option == "match" || option == "compare" {
-                format!(r#"{{"status":200,"result":{}}}"#, value)
-            } else {
+            if option == "ocr" || option == "old" {
                 serde_json::json!({
                     "status": 200,
                     "result": value,
                 })
                 .to_string()
+            } else {
+                // 不要双引号
+                format!(r#"{{"status":200,"result":{}}}"#, value)
             }
         } else {
             value
@@ -104,7 +109,7 @@ async fn handle_abc(
     unsafe {
         let inner = || async {
             match option.as_str() {
-                "ocr" => {
+                "ocr" if OCR.is_some() => {
                     let file = get_file(image_type, content, request).await?;
                     ensure!(file.iter().any(|v| v.0 == "image") && file.len() == 1);
                     let file = file[0].1.clone();
@@ -115,7 +120,7 @@ async fn handle_abc(
                             .unwrap()?,
                     )
                 }
-                "old" => {
+                "old" if OLD.is_some() => {
                     let file = get_file(image_type, content, request).await?;
                     ensure!(file.iter().any(|v| v.0 == "image") && file.len() == 1);
                     let file = file[0].1.clone();
@@ -126,7 +131,7 @@ async fn handle_abc(
                             .unwrap()?,
                     )
                 }
-                "det" => {
+                "det" if DET.is_some() => {
                     let file = get_file(image_type, content, request).await?;
                     ensure!(
                         file.len() == 1 && file[0].0 == "image",
@@ -153,7 +158,23 @@ async fn handle_abc(
                         ddddocr::slide_match(file[1].1.clone(), file[0].1.clone()).map(|v| v.json())
                     }
                 }
-                "compare" if FLAG & 2 == 2 => {
+                "simple_match" if FLAG & 2 == 2 => {
+                    let file = get_file(image_type, content, request).await?;
+                    ensure!(
+                        file.len() == 2
+                            && (file[0].0 == "target" && file[1].0 == "background"
+                                || file[0].0 == "background" && file[1].0 == "target"),
+                        "找不到名为 target 或 background 的文件"
+                    );
+                    if file[0].0 == "target" {
+                        ddddocr::simple_slide_match(file[0].1.clone(), file[1].1.clone())
+                            .map(|v| v.json())
+                    } else {
+                        ddddocr::simple_slide_match(file[1].1.clone(), file[0].1.clone())
+                            .map(|v| v.json())
+                    }
+                }
+                "compare" if FLAG & 4 == 4 => {
                     let file = get_file(image_type, content, request).await?;
                     ensure!(
                         file.len() == 2
@@ -169,7 +190,9 @@ async fn handle_abc(
                             .map(|v| v.json())
                     }
                 }
-                _ => Err(anyhow::anyhow!("预期之外的选项: {option}")),
+                _ => Err(anyhow::anyhow!(
+                    "预期之外的选项: {option}, 请确认服务是否已开启"
+                )),
             }
         };
         inner()
@@ -268,13 +291,25 @@ async fn main() {
             println!("开启滑块识别成功");
         }
 
-        if args.slide_compare || args.full {
+        if args.simple_slide_match || args.full {
             FLAG |= 2;
+            println!("开启简单滑块识别成功");
+        }
+
+        if args.slide_compare || args.full {
+            FLAG |= 4;
             println!("开启坑位识别成功");
         }
     }
 
-    if args.full || args.ocr || args.old || args.det || args.slide_match || args.slide_compare {
+    if args.full
+        || args.ocr
+        || args.old
+        || args.det
+        || args.simple_slide_match
+        || args.slide_match
+        || args.slide_compare
+    {
         println!("正在监听 {}:{}", args.address, args.port);
         HttpServer::new(|| App::new().service(ping).service(handle_abc))
             .bind((args.address, args.port))

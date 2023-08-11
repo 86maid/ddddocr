@@ -174,17 +174,18 @@ println!("{:?}", res);
 Usage: ddddocr.exe [OPTIONS]
 
 Options:
-  -a, --address <ADDRESS>      监听地址 [default: 127.0.0.1]
-  -p, --port <PORT>            监听端口 [default: 9898]
-  -f, --full                   开启所有选项
-      --ocr                    开启内容识别，支持新旧模型共存
-      --old                    开启旧版模型内容识别，支持新旧模型共存
-      --det                    开启目标检测
-      --ocr-path <OCR_PATH>    内容识别模型以及字符集路径， 通过哈希值判断是否为自定义模型， 使用自定义模型会使 old 选项失效， 路径 model/common 对应模型 model/common.onnx 和字符集 model/common.json [default: model/common]
-      --det-path <DET_PATH>    目标检测模型路径 [default: model/common_det.onnx]
-      --slide-match            开启滑块识别
-      --slide-compare          开启坑位识别
-  -h, --help                   Print help
+  -a, --address <ADDRESS>    监听地址 [default: 127.0.0.1]
+  -p, --port <PORT>          监听端口 [default: 9898]
+  -f, --full                 开启所有选项
+      --ocr                  开启内容识别，支持新旧模型共存
+      --old                  开启旧版模型内容识别，支持新旧模型共存
+      --det                  开启目标检测
+      --ocr-path <OCR_PATH>  内容识别模型以及字符集路径， 通过哈希值判断是否为自定义模型， 使用自定义模型会使 old 选项失效， 路径 model/common 对应模型 model/common.onnx 和字符集 model/common.json [default: model/common]
+      --det-path <DET_PATH>  目标检测模型路径 [default: model/common_det.onnx]
+      --slide-match          开启滑块识别
+      --simple-slide-match   开启简单滑块识别
+      --slide-compare        开启坑位识别
+  -h, --help                 Print help
 ```
 
 ## 接口
@@ -194,25 +195,26 @@ Options:
 http://{host}:{port}/{opt}/{img_type}/{ret_type}
 
 opt:
-  ocr       内容识别
-  old       旧版模型内容识别
-  det       目标检测
-  match     滑块匹配
-  compare   坑位匹配
+  ocr           内容识别
+  old           旧版模型内容识别
+  det           目标检测
+  match         滑块匹配
+  simple_match  简单滑块匹配
+  compare       坑位匹配
 
 img_type:
-  file      文件，即 multipart/form-data
-  b64       base64，即 {"a": encode(bytes), "b": encode(bytes)}
+  file          文件，即 multipart/form-data
+  b64           base64，即 {"a": encode(bytes), "b": encode(bytes)}
 
 ret_type:
-  json      json，成功 {"status": 200, "result": object}，失败 {"status": 404, "msg": "失败原因"}
-  text      文本，失败返回空文本
+  json          json，成功 {"status": 200, "result": object}，失败 {"status": 404, "msg": "失败原因"}
+  text          文本，失败返回空文本
 ```
 
 ### 具体请看 test_api.py 文件
 ```python
-import base64
 import requests
+import base64
 
 host = "http://127.0.0.1:9898"
 file = open('image/3.png', 'rb').read()
@@ -235,6 +237,11 @@ resp = requests.post(
     api_url, json={'image': base64.b64encode(file).decode()})
 print(f"{api_url=}, {resp.text=}")
 
+# =============================================================
+# =============================================================
+# =============================================================
+
+
 api_url = f"{host}/old/file/text"
 resp = requests.post(api_url, files={'image': file})
 print(f"{api_url=}, {resp.text=}")
@@ -252,6 +259,11 @@ api_url = f"{host}/old/b64/json"
 resp = requests.post(
     api_url, json={'image': base64.b64encode(file).decode()})
 print(f"{api_url=}, {resp.text=}")
+
+# =============================================================
+# =============================================================
+# =============================================================
+
 
 api_url = f"{host}/det/file/text"
 resp = requests.post(api_url, files={'image': file})
@@ -297,6 +309,33 @@ resp = requests.post(
     api_url, json={'target': base64.b64encode(target_file).decode(), 'background': base64.b64encode(bg_file).decode()})
 print(f"{api_url=}, {resp.text=}")
 
+# =============================================================
+# =============================================================
+# =============================================================
+
+target_file = open('image/a.png', 'rb').read()
+bg_file = open('image/b.png', 'rb').read()
+
+api_url = f"{host}/simple_match/file/text"
+resp = requests.post(
+    api_url, files={'target': target_file, 'background': bg_file})
+print(f"{api_url=}, {resp.text=}")
+
+api_url = f"{host}/simple_match/file/json"
+resp = requests.post(
+    api_url, files={'target': target_file, 'background': bg_file})
+print(f"{api_url=}, {resp.text=}")
+
+api_url = f"{host}/simple_match/b64/text"
+resp = requests.post(
+    api_url, json={'target': base64.b64encode(target_file).decode(), 'background': base64.b64encode(bg_file).decode()})
+print(f"{api_url=}, {resp.text=}")
+
+api_url = f"{host}/simple_match/b64/json"
+resp = requests.post(
+    api_url, json={'target': base64.b64encode(target_file).decode(), 'background': base64.b64encode(bg_file).decode()})
+print(f"{api_url=}, {resp.text=}")
+
 
 # =============================================================
 # =============================================================
@@ -324,4 +363,5 @@ api_url = f"{host}/compare/b64/json"
 resp = requests.post(
     api_url, json={'target': base64.b64encode(target_file).decode(), 'background': base64.b64encode(bg_file).decode()})
 print(f"{api_url=}, {resp.text=}")
+
 ```
