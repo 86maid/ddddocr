@@ -249,8 +249,30 @@ where
 {
     // 比较 common.onnx 和 common_old.onnx 的 sha256
     let sha256 = sha256::digest(model.as_ref());
-    sha256 != "90e432635bfb100ac6b856220a10b186053264cc307dd049d58e8ea2643cb6e9"
-        && sha256 != "b1d5e1344954355b10b40632062b8a9def06bcc33229fb667274662bf31dcf3f"
+    sha256 != sha256::digest(include_bytes!("../model/common.onnx"))
+        && sha256 != sha256::digest(include_bytes!("../model/common_old.onnx"))
+}
+
+/// 将图片的透明部分用白色填充。
+fn png_rgba_black_preprocess(image: &image::DynamicImage) -> image::DynamicImage {
+    let (width, height) = image::GenericImageView::dimensions(image);
+    let mut new_image = image::DynamicImage::new_rgb8(width, height);
+
+    for y in 0..height {
+        for x in 0..width {
+            let rgba_pixel = image::GenericImageView::get_pixel(image, x, y);
+
+            let rgb_pixel = if rgba_pixel[3] == 0 {
+                image::Rgba([255, 255, 255, 255])
+            } else {
+                image::Rgba([rgba_pixel[0], rgba_pixel[1], rgba_pixel[2], rgba_pixel[3]])
+            };
+
+            image::GenericImage::put_pixel(&mut new_image, x, y, rgb_pixel);
+        }
+    }
+
+    new_image
 }
 
 /// 内容识别需要用到的配置。
@@ -299,6 +321,30 @@ pub struct SlideBBox {
     pub y2: u32,
 }
 
+/// 字符集和概率。
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct CharacterProbability {
+    pub charset: Vec<String>,
+    pub probability: Vec<Vec<f32>>,
+}
+
+impl CharacterProbability {
+    pub fn get_text(&self) -> String {
+        let mut s = String::new();
+
+        for i in &self.probability {
+            let n = i
+                .iter()
+                .position(|v| v == i.iter().max_by(|a, b| a.total_cmp(b)).unwrap())
+                .unwrap();
+
+            s += &self.charset[n];
+        }
+
+        return s;
+    }
+}
+
 pub trait MapJson {
     fn json(&self) -> String;
 }
@@ -322,6 +368,12 @@ impl MapJson for SlideBBox {
 }
 
 impl MapJson for (u32, u32) {
+    fn json(&self) -> String {
+        unsafe { serde_json::to_string(self).unwrap_unchecked() }
+    }
+}
+
+impl MapJson for CharacterProbability {
     fn json(&self) -> String {
         unsafe { serde_json::to_string(self).unwrap_unchecked() }
     }
@@ -368,11 +420,71 @@ const MODEL_WIDTH: u32 = 416;
 const MODEL_HEIGHT: u32 = 416;
 const STRIDES: [u32; 3] = [8, 16, 32];
 
+/// 字符集范围。
+pub enum CharsetRange {
+    /// 纯整数 0-9。
+    Digit,
+
+    /// 纯小写字母 a-z。
+    Lowercase,
+
+    /// 纯大写字母 a-z。
+    Uppercase,
+
+    /// 小写字母 a-z + 大写字母 A-Z。
+    LowercaseUppercase,
+
+    /// 小写字母 a-z + 整数 0-9。
+    LowercaseDigit,
+
+    /// 大写字母 A-Z + 整数 0-9。
+    UppercaseDigit,
+
+    /// 小写字母 a-z + 大写字母 A-Z + 整数 0-9。
+    LowercaseUppercaseDigit,
+
+    /// 默认字符集，删除小写字母 a-z、大写字母 A-Z、整数 0-9。
+    DefaultCharsetLowercaseUppercaseDigit,
+
+    /// 自定义字符集，例如 `0123456789+-x/=`。
+    Other(String),
+}
+
+impl From<i32> for CharsetRange {
+    fn from(value: i32) -> Self {
+        match value {
+            0 => Self::Digit,
+            1 => Self::Lowercase,
+            2 => Self::Uppercase,
+            3 => Self::LowercaseUppercase,
+            4 => Self::LowercaseDigit,
+            5 => Self::UppercaseDigit,
+            6 => Self::LowercaseUppercaseDigit,
+            7 => Self::DefaultCharsetLowercaseUppercaseDigit,
+            // 没这个选项
+            _ => panic!("you are a big fool"),
+        }
+    }
+}
+
+impl From<&str> for CharsetRange {
+    fn from(value: &str) -> Self {
+        CharsetRange::Other(value.to_string())
+    }
+}
+
+impl From<String> for CharsetRange {
+    fn from(value: String) -> Self {
+        CharsetRange::Other(value)
+    }
+}
+
 #[derive(Debug)]
 pub struct Ddddocr<'a> {
     diy: bool,
     session: onnxruntime::session::Session<'a>,
     charset: Option<std::borrow::Cow<'a, Charset>>,
+    charset_range: Vec<String>,
 }
 
 /// 我也不知道这里是不是安全的，但我多线程测试过，没有发现异常。
@@ -381,12 +493,9 @@ unsafe impl<'a> Send for Ddddocr<'a> {}
 /// 我也不知道这里是不是安全的，但我多线程测试过，没有发现异常。
 unsafe impl<'a> Sync for Ddddocr<'a> {}
 
-/// 因为自带模型和自定义模型的参数不同，
-/// 所有在创建模型的时候会自动判断是否为自定义模型。
+/// 因为自带模型和自定义模型的参数不同，所以在创建模型的时候会自动判断是否为自定义模型。
 impl<'a> Ddddocr<'a> {
-    /// 从内存加载模型和字符集，
-    /// 只能使用内容识别，
-    /// 使用目标检测会恐慌。
+    /// 从内存加载模型和字符集，只能使用内容识别，使用目标检测会恐慌。
     pub fn new<MODEL>(model: MODEL, charset: Charset) -> anyhow::Result<Self>
     where
         MODEL: AsRef<[u8]>,
@@ -397,12 +506,11 @@ impl<'a> Ddddocr<'a> {
                 .new_session_builder()?
                 .with_model_from_memory(model)?,
             charset: Some(std::borrow::Cow::Owned(charset)),
+            charset_range: Vec::new(),
         })
     }
 
-    /// 从内存加载模型和字符集，
-    /// 只能使用内容识别，
-    /// 使用目标检测会恐慌。
+    /// 从内存加载模型和字符集，只能使用内容识别，使用目标检测会恐慌。
     pub fn new_ref<MODEL>(model: MODEL, charset: &'a Charset) -> anyhow::Result<Self>
     where
         MODEL: AsRef<[u8]>,
@@ -413,12 +521,11 @@ impl<'a> Ddddocr<'a> {
                 .new_session_builder()?
                 .with_model_from_memory(model)?,
             charset: Some(std::borrow::Cow::Borrowed(charset)),
+            charset_range: Vec::new(),
         })
     }
 
-    /// 从内存加载模型和字符集，
-    /// 只能使用内容识别，
-    /// 使用目标检测会恐慌。
+    /// 从内存加载模型和字符集，只能使用内容识别，使用目标检测会恐慌。
     #[cfg(feature = "cuda")]
     pub fn new_cuda<MODEL>(model: MODEL, charset: Charset, device_id: i32) -> anyhow::Result<Self>
     where
@@ -431,12 +538,11 @@ impl<'a> Ddddocr<'a> {
                 .use_cuda(device_id)?
                 .with_model_from_memory(model)?,
             charset: Some(charset),
+            charset_range: Vec::new(),
         })
     }
 
-    /// 从内存加载模型和字符集，
-    /// 只能使用内容识别，
-    /// 使用目标检测会恐慌。
+    /// 从内存加载模型和字符集，只能使用内容识别，使用目标检测会恐慌。
     #[cfg(feature = "cuda")]
     pub fn new_cuda_ref<MODEL>(
         model: MODEL,
@@ -453,12 +559,11 @@ impl<'a> Ddddocr<'a> {
                 .use_cuda(device_id)?
                 .with_model_from_memory(model)?,
             charset: Some(std::borrow::Cow::Borrowed(charset)),
+            charset_range: Vec::new(),
         })
     }
 
-    /// 从内存加载模型，
-    /// 只能使用目标检测，
-    /// 使用内容识别会恐慌。
+    /// 从内存加载模型，只能使用目标检测，使用内容识别会恐慌。
     pub fn new_model<MODEL>(model: MODEL) -> anyhow::Result<Self>
     where
         MODEL: AsRef<[u8]>,
@@ -469,12 +574,11 @@ impl<'a> Ddddocr<'a> {
                 .new_session_builder()?
                 .with_model_from_memory(model)?,
             charset: None,
+            charset_range: Vec::new(),
         })
     }
 
-    /// 从内存加载模型，
-    /// 只能使用目标检测，
-    /// 使用内容识别会恐慌。
+    /// 从内存加载模型，只能使用目标检测，使用内容识别会恐慌。
     #[cfg(feature = "cuda")]
     pub fn new_model_cuda<MODEL>(model: MODEL, device_id: i32) -> anyhow::Result<Self>
     where
@@ -487,12 +591,11 @@ impl<'a> Ddddocr<'a> {
                 .use_cuda(device_id)?
                 .with_model_from_memory(model)?,
             charset: None,
+            charset_range: Vec::new(),
         })
     }
 
-    /// 从文件加载模型和字符集，
-    /// 只能使用内容识别，
-    /// 使用目标检测会恐慌。
+    /// 从文件加载模型和字符集，只能使用内容识别，使用目标检测会恐慌。
     pub fn with_model_charset<PATH1, PATH2>(model: PATH1, charset: PATH2) -> anyhow::Result<Self>
     where
         PATH1: AsRef<std::path::Path>,
@@ -504,9 +607,7 @@ impl<'a> Ddddocr<'a> {
         )
     }
 
-    /// 从文件加载模型和字符集，
-    /// 只能使用内容识别，
-    /// 使用目标检测会恐慌。
+    /// 从文件加载模型和字符集，只能使用内容识别，使用目标检测会恐慌。
     #[cfg(feature = "cuda")]
     pub fn with_model_charset_cuda<PATH1, PATH2>(
         model: PATH1,
@@ -524,9 +625,7 @@ impl<'a> Ddddocr<'a> {
         )
     }
 
-    /// 从文件加载模型，
-    /// 只能使用目标检测，
-    /// 使用内容识别会恐慌。
+    /// 从文件加载模型，只能使用目标检测，使用内容识别会恐慌。
     pub fn with_model<P>(model: P) -> anyhow::Result<Self>
     where
         P: AsRef<std::path::Path>,
@@ -534,9 +633,7 @@ impl<'a> Ddddocr<'a> {
         Self::new_model(std::fs::read(model)?)
     }
 
-    /// 从文件加载模型，
-    /// 只能使用目标检测，
-    /// 使用内容识别会恐慌。
+    /// 从文件加载模型，只能使用目标检测，使用内容识别会恐慌。
     #[cfg(feature = "cuda")]
     pub fn with_model_cuda<P>(model: P, device_id: i32) -> anyhow::Result<Self>
     where
@@ -545,8 +642,250 @@ impl<'a> Ddddocr<'a> {
         Self::new_model_cuda(std::fs::read(model)?, device_id)
     }
 
-    /// 内容识别。
-    pub fn classification<I>(&mut self, image: I) -> anyhow::Result<String>
+    /// 限定 classification_probability 的字符范围，只能使用内容识别，使用目标检测会恐慌。
+    pub fn set_ranges<T>(&mut self, ranges: T)
+    where
+        T: Into<CharsetRange>,
+    {
+        let new_charset = match ranges.into() {
+            CharsetRange::Digit => "0123456789"
+                .chars()
+                .map(|v| v.to_string())
+                .collect::<Vec<String>>(),
+            CharsetRange::Lowercase => "abcdefghijklmnopqrstuvwxyz"
+                .chars()
+                .map(|v| v.to_string())
+                .collect::<Vec<String>>(),
+            CharsetRange::Uppercase => "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                .chars()
+                .map(|v| v.to_string())
+                .collect::<Vec<String>>(),
+            CharsetRange::LowercaseUppercase => {
+                "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                    .chars()
+                    .map(|v| v.to_string())
+                    .collect::<Vec<String>>()
+            }
+            CharsetRange::LowercaseDigit => "abcdefghijklmnopqrstuvwxyz0123456789"
+                .chars()
+                .map(|v| v.to_string())
+                .collect::<Vec<String>>(),
+            CharsetRange::UppercaseDigit => "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+                .chars()
+                .map(|v| v.to_string())
+                .collect::<Vec<String>>(),
+            CharsetRange::LowercaseUppercaseDigit => {
+                "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+                    .chars()
+                    .map(|v| v.to_string())
+                    .collect::<Vec<String>>()
+            }
+            CharsetRange::DefaultCharsetLowercaseUppercaseDigit => {
+                // 删除小写字母 a-z、大写字母 A-Z、整数 0-9
+                let delete_range = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+                    .chars()
+                    .collect::<Vec<char>>();
+
+                // 哈哈，哎呀，别闹了！文档都明确说了只能用内容识别模型，你还在这加载目标检测模型，自找麻烦啊！
+                (&**self.charset.as_ref().expect("you are a big fool"))
+                    .charset
+                    .clone()
+                    .into_iter()
+                    .filter(|v| v.chars().all(|c| !delete_range.contains(&c)))
+                    .collect::<Vec<String>>()
+            }
+            CharsetRange::Other(v) => v.chars().map(|v| v.to_string()).collect::<Vec<String>>(),
+        };
+
+        // 去重
+        self.charset_range = new_charset
+            .into_iter()
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect::<Vec<String>>();
+
+        self.charset_range.push("".to_string());
+    }
+
+    /// 内容识别，返回全字符表的概率，可以通过 set_ranges 限定字符范围，仅限于使用官方模型。
+    pub fn classification_probability<I>(
+        &mut self,
+        image: I,
+        png_fix: bool,
+    ) -> anyhow::Result<CharacterProbability>
+    where
+        I: AsRef<[u8]>,
+    {
+        if self.diy {
+            // 嘿，傻瓜，这里明明写了只能用官方模型，你是故意不看吗？发生 panic 的话自己负责哦！
+            panic!("you are a big fool")
+        }
+
+        let image = image::load_from_memory(image.as_ref())?;
+        let charset = self.charset.as_ref().unwrap();
+        let word = charset.word;
+        let resize = charset.image;
+        let channel = charset.channel;
+        let charset = &charset.charset;
+
+        // 使用 ANTIALIAS (Lanczos3) 缩放图片
+        let image = if resize[0] == -1 {
+            if word {
+                image.resize(
+                    resize[1] as u32,
+                    resize[1] as u32,
+                    image::imageops::FilterType::Lanczos3,
+                )
+            } else {
+                image.resize(
+                    image.width() * resize[1] as u32 / image.height(),
+                    resize[1] as u32,
+                    image::imageops::FilterType::Lanczos3,
+                )
+            }
+        } else {
+            image.resize(
+                resize[0] as u32,
+                resize[1] as u32,
+                image::imageops::FilterType::Lanczos3,
+            )
+        };
+
+        // 设置图片的通道数为模型所需的通道数
+        let image_bytes = if channel == 1 {
+            image::EncodableLayout::as_bytes(image.to_luma8().as_ref()).to_vec()
+        } else if png_fix {
+            png_rgba_black_preprocess(&image).to_rgb8().to_vec()
+        } else {
+            image.to_rgb8().to_vec()
+        };
+
+        // 图片转换到张量
+        let channel = channel as usize;
+        let width = image.width() as usize;
+        let height = image.height() as usize;
+        let image =
+            onnxruntime::ndarray::Array::from_shape_vec((channel, height, width), image_bytes)?;
+        let mut tensor = onnxruntime::ndarray::Array::from_shape_vec(
+            (1, channel, height, width),
+            vec![0f32; height * width],
+        )?;
+
+        // 根据配置标准化图像张量
+        for i in 0..height {
+            for j in 0..width {
+                let now = image[[0, i, j]] as f32;
+                if self.diy {
+                    // 自定义模型
+                    if channel == 1 {
+                        tensor[[0, 0, i, j]] = ((now / 255f32) - 0.456f32) / 0.224f32;
+                    } else {
+                        let r = image[[0, i, j]] as f32;
+                        let g = image[[1, i, j]] as f32;
+                        let b = image[[2, i, j]] as f32;
+                        tensor[[0, 0, i, j]] = ((r / 255f32) - 0.485f32) / 0.229f32;
+                        tensor[[0, 1, i, j]] = ((g / 255f32) - 0.456f32) / 0.224f32;
+                        tensor[[0, 2, i, j]] = ((b / 255f32) - 0.406f32) / 0.225f32;
+                    }
+                } else {
+                    tensor[[0, 0, i, j]] = ((now / 255f32) - 0.5f32) / 0.5f32;
+                }
+            }
+        }
+
+        let ort_outs = &self.session.run::<_, f32, _>(vec![tensor])?[0];
+
+        // 长这样 [[[1,2,3,4]], [[1,2,3,4]], [[1,2,3,4]]]
+        let ort_outs = ort_outs.mapv(|v| f32::exp(v)) / ort_outs.mapv(|v| f32::exp(v)).sum();
+
+        // 长这样 [[1,2,3,4], [1,2,3,4], [1,2,3,4]]
+        let ort_outs_sum = ort_outs.sum_axis(onnxruntime::ndarray::Axis(2));
+
+        onnxruntime::ndarray::Array::<f32, _>::zeros(ort_outs.raw_dim());
+
+        // 根据形状创建一个零数组
+        let mut ort_outs_probability =
+            onnxruntime::ndarray::Array::<f32, _>::zeros(ort_outs.raw_dim());
+
+        for i in 0..ort_outs.shape()[0] {
+            let mut a = ort_outs_probability.slice_mut(onnxruntime::ndarray::s![i, .., ..]);
+            let b = ort_outs.slice(onnxruntime::ndarray::s![i, .., ..]);
+            let c = ort_outs_sum.slice(onnxruntime::ndarray::s![i, ..]);
+            let d = &b / &c;
+
+            a.assign(&d);
+        }
+
+        // 调用 next 后，长这样 [[1,2,3,4], [1,2,3,4], [1,2,3,4]]
+        let ort_outs_probability = ort_outs_probability
+            .axis_iter(onnxruntime::ndarray::Axis(1))
+            .next()
+            .ok_or(anyhow::anyhow!("expect axis 1"))?;
+
+        let mut result = Vec::new();
+
+        // 扁平化
+        for i in ort_outs_probability.axis_iter(onnxruntime::ndarray::Axis(0)) {
+            result.push(i.into_diag().to_vec());
+        }
+
+        if self.charset_range.is_empty() {
+            // 返回全部字符的概率
+            return Ok(CharacterProbability {
+                charset: charset.clone(),
+                probability: result,
+            });
+        } else {
+            // 根据指定的字符范围，从模型输出的概率结果中提取对应字符的概率
+            // 如果字符不在字符集中，则将其概率设置为 -1.0，表示未知字符
+
+            let mut probability_result_index = Vec::new();
+
+            for i in &self.charset_range {
+                if let Some(v) = charset.iter().position(|v| v == i) {
+                    probability_result_index.push(v);
+                } else {
+                    probability_result_index.push(usize::MAX);
+                }
+            }
+
+            let mut probability_result = Vec::new();
+
+            for item in &result {
+                let mut inner_vec = Vec::new();
+
+                for &i in &probability_result_index {
+                    if i != usize::MAX {
+                        inner_vec.push(item[i]);
+                    } else {
+                        inner_vec.push(-1.0);
+                    }
+                }
+
+                probability_result.push(inner_vec);
+            }
+
+            return Ok(CharacterProbability {
+                charset: self.charset_range.clone(),
+                probability: probability_result,
+            });
+        }
+    }
+
+    /// 内容识别，返回全字符表的概率，可以通过 set_ranges 限定字符范围，仅限于使用官方模型。
+    pub fn classification_probability_with_path<P>(
+        &mut self,
+        path: P,
+        png_fix: bool,
+    ) -> anyhow::Result<CharacterProbability>
+    where
+        P: AsRef<std::path::Path>,
+    {
+        self.classification_probability(std::fs::read(path)?, png_fix)
+    }
+
+    /// 内容识别，如果 png_fix 为 ture，则支持透明黑色背景的 png 图片。
+    pub fn classification<I>(&mut self, image: I, png_fix: bool) -> anyhow::Result<String>
     where
         I: AsRef<[u8]>,
     {
@@ -583,20 +922,28 @@ impl<'a> Ddddocr<'a> {
         // 设置图片的通道数为模型所需的通道数
         let image_bytes = if channel == 1 {
             image::EncodableLayout::as_bytes(image.to_luma8().as_ref()).to_vec()
+        } else if png_fix {
+            png_rgba_black_preprocess(&image).to_rgb8().to_vec()
         } else {
             image.to_rgb8().to_vec()
         };
 
         // 图片转换到张量
         let channel = channel as usize;
+
         let width = image.width() as usize;
+
         let height = image.height() as usize;
+
         let image =
             onnxruntime::ndarray::Array::from_shape_vec((channel, height, width), image_bytes)?;
+
         let mut tensor = onnxruntime::ndarray::Array::from_shape_vec(
             (1, channel, height, width),
             vec![0f32; height * width],
         )?;
+
+        // 根据配置标准化图像张量
         for i in 0..height {
             for j in 0..width {
                 let now = image[[0, i, j]] as f32;
@@ -624,29 +971,66 @@ impl<'a> Ddddocr<'a> {
                 .map(|&v| charset[v as usize].to_string())
                 .collect::<String>())
         } else {
-            // 过滤无效字符
+            let result = &self.session.run::<_, f32, _>(vec![tensor])?[0];
+
             let mut last_item = 0;
-            Ok(self.session.run::<_, i64, _>(vec![tensor])?[0]
-                .iter()
-                .filter(|&&v| {
-                    if v != 0 && v != last_item {
-                        last_item = v;
-                        true
-                    } else {
-                        false
-                    }
-                })
-                .map(|&v| charset[v as usize].to_string())
-                .collect::<String>())
+
+            if self.diy {
+                // todo: 自定义模型未经测试
+                // Ok(result
+                //     .iter()
+                //     .filter(|&&v| {
+                //         if v != 0 && v != last_item {
+                //             last_item = v;
+                //             true
+                //         } else {
+                //             false
+                //         }
+                //     })
+                //     .map(|&v| charset[v as usize].to_string())
+                //     .collect::<String>())
+
+                todo!()
+            } else {
+                // 输入长这样 [[[1,2,3,4], [1,2,3,4], [1,2,3,4]]]
+                // 我们要获取   ^^^^^^^^^  ^^^^^^^^^  ^^^^^^^^^
+                // 最后结果 [3, 3, 3]
+                let result = result
+                    .rows()
+                    .into_iter()
+                    .map(|v| {
+                        // 找出数组中元素值最大的那个，然后获取他在数组中的索引
+                        v.iter()
+                            .enumerate()
+                            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+                            .unwrap_or((0, &0.0))
+                            .0
+                    })
+                    .collect::<Vec<usize>>();
+
+                // 过滤无效字符
+                Ok(result
+                    .iter()
+                    .filter(|&&v| {
+                        if v != 0 && v != last_item {
+                            last_item = v;
+                            true
+                        } else {
+                            false
+                        }
+                    })
+                    .map(|&v| charset[v as usize].to_string())
+                    .collect::<String>())
+            }
         }
     }
 
-    /// 内容识别。
-    pub fn classification_with_path<P>(&mut self, path: P) -> anyhow::Result<String>
+    /// 内容识别，如果 png_fix 为 ture，则支持透明黑色背景的 png 图片。
+    pub fn classification_with_path<P>(&mut self, path: P, png_fix: bool) -> anyhow::Result<String>
     where
         P: AsRef<std::path::Path>,
     {
-        self.classification(std::fs::read(path)?)
+        self.classification(std::fs::read(path)?, png_fix)
     }
 
     /// 目标检测。
@@ -818,30 +1202,51 @@ mod tests {
     use super::*;
 
     #[test]
+    fn classification_probability() {
+        let mut ddddocr = ddddocr_classification().unwrap();
+
+        // CharsetRange::LowercaseUppercase 大写字母和小写字母
+        ddddocr.set_ranges(3);
+
+        let result = ddddocr
+            .classification_probability(include_bytes!("../image/3.png"), false)
+            .unwrap();
+
+        // 哦呀，看来数据有点儿太多了，小心卡死哦！
+        println!("概率: {}", result.json());
+
+        println!("识别结果: {}", result.get_text());
+    }
+
+    #[test]
     fn classification() {
         let mut ddddocr = ddddocr_classification().unwrap();
+
         println!(
             "{}",
             ddddocr
-                .classification(include_bytes!("../image/1.png"))
+                .classification(include_bytes!("../image/1.png"), false)
                 .unwrap()
         );
+
         println!(
             "{}",
             ddddocr
-                .classification(include_bytes!("../image/2.png"))
+                .classification(include_bytes!("../image/2.png"), false)
                 .unwrap()
         );
+
         println!(
             "{}",
             ddddocr
-                .classification(include_bytes!("../image/3.png"))
+                .classification(include_bytes!("../image/3.png"), false)
                 .unwrap()
         );
+
         println!(
             "{}",
             ddddocr
-                .classification(include_bytes!("../image/4.png"))
+                .classification(include_bytes!("../image/4.png"), false)
                 .unwrap()
         );
     }
@@ -849,28 +1254,32 @@ mod tests {
     #[test]
     fn classification_old() {
         let mut ddddocr = ddddocr_classification_old().unwrap();
+
         println!(
             "{}",
             ddddocr
-                .classification(include_bytes!("../image/1.png"))
+                .classification(include_bytes!("../image/1.png"), false)
                 .unwrap()
         );
+
         println!(
             "{}",
             ddddocr
-                .classification(include_bytes!("../image/2.png"))
+                .classification(include_bytes!("../image/2.png"), false)
                 .unwrap()
         );
+
         println!(
             "{}",
             ddddocr
-                .classification(include_bytes!("../image/3.png"))
+                .classification(include_bytes!("../image/3.png"), false)
                 .unwrap()
         );
+
         println!(
             "{}",
             ddddocr
-                .classification(include_bytes!("../image/4.png"))
+                .classification(include_bytes!("../image/4.png"), false)
                 .unwrap()
         );
     }

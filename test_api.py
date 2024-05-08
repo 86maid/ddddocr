@@ -2,7 +2,11 @@ import requests
 import base64
 
 host = "http://127.0.0.1:9898"
-file = open('image/3.png', 'rb').read()
+file = open('./image/3.png', 'rb').read()
+
+# =============================================================
+# =============================================================
+# =============================================================
 
 api_url = f"{host}/ocr/file/text"
 resp = requests.post(api_url, files={'image': file})
@@ -26,7 +30,6 @@ print(f"{api_url=}, {resp.text=}")
 # =============================================================
 # =============================================================
 
-
 api_url = f"{host}/old/file/text"
 resp = requests.post(api_url, files={'image': file})
 print(f"{api_url=}, {resp.text=}")
@@ -49,6 +52,49 @@ print(f"{api_url=}, {resp.text=}")
 # =============================================================
 # =============================================================
 
+api_url = f"{host}/ocr_probability/file/text"
+resp = requests.post(api_url, files={'image': file})
+print(f"{api_url=}, {resp.text=}")
+
+api_url = f"{host}/ocr_probability/file/json"
+resp = requests.post(api_url, files={'image': file})
+print(f"{api_url=}, {resp.text=}")
+
+api_url = f"{host}/ocr_probability/b64/text"
+resp = requests.post(
+    api_url, json={'image': base64.b64encode(file).decode()})
+print(f"{api_url=}, {resp.text=}")
+
+api_url = f"{host}/ocr_probability/b64/json"
+resp = requests.post(
+    api_url, json={'image': base64.b64encode(file).decode()})
+print(f"{api_url=}, {resp.text=}")
+
+# =============================================================
+# =============================================================
+# =============================================================
+
+api_url = f"{host}/old_probability/file/text"
+resp = requests.post(api_url, files={'image': file})
+print(f"{api_url=}, {resp.text=}")
+
+api_url = f"{host}/old_probability/file/json"
+resp = requests.post(api_url, files={'image': file})
+print(f"{api_url=}, {resp.text=}")
+
+api_url = f"{host}/old_probability/b64/text"
+resp = requests.post(
+    api_url, json={'image': base64.b64encode(file).decode()})
+print(f"{api_url=}, {resp.text=}")
+
+api_url = f"{host}/old_probability/b64/json"
+resp = requests.post(
+    api_url, json={'image': base64.b64encode(file).decode()})
+print(f"{api_url=}, {resp.text=}")
+
+# =============================================================
+# =============================================================
+# =============================================================
 
 api_url = f"{host}/det/file/text"
 resp = requests.post(api_url, files={'image': file})

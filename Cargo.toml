@@ -1,13 +1,13 @@
 [package]
 name = "ddddocr"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 [features]
 cuda = ["onnxruntime/cuda"]
 
 [dependencies]
-# 我把 ureq 改成了 reqwest
+# 我把 ureq 改成了 reqwest，因为他不支持代理，导致下载经常失败
 onnxruntime = { git = "https://github.com/86maid/onnxruntime-rs.git", branch = "master" }
 # 这个版本不支持 cuda
 # onnxruntime = "0.0.14"
