@@ -249,8 +249,8 @@ where
 {
     // 比较 common.onnx 和 common_old.onnx 的 sha256
     let sha256 = sha256::digest(model.as_ref());
-    sha256 != sha256::digest(include_bytes!("../model/common.onnx"))
-        && sha256 != sha256::digest(include_bytes!("../model/common_old.onnx"))
+    sha256 != "33b5cd351ee94e73a6bf8fa18c415ed8b819b3ffd342e267c30d8ad8334e34e8"
+        && sha256 != "b8f2ad9cbc1f2e3922a6cb9459e30824e7e2467f3fb4fd61420640e34ea0bf68"
 }
 
 /// 将图片的透明部分用白色填充。
