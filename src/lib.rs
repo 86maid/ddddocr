@@ -718,7 +718,7 @@ impl<'a> Ddddocr<'a> {
     {
         if self.diy {
             // 嘿，傻瓜，这里明明写了只能用官方模型，你是故意不看吗？发生 panic 的话自己负责哦！
-            panic!("you are a big fool")
+            panic!("you are a big fool");
         }
 
         let image = image::load_from_memory(image.as_ref())?;
@@ -971,27 +971,29 @@ impl<'a> Ddddocr<'a> {
                 .map(|&v| charset[v as usize].to_string())
                 .collect::<String>())
         } else {
-            let result = &self.session.run::<_, f32, _>(vec![tensor])?[0];
-
-            let mut last_item = 0;
-
             if self.diy {
                 // todo: 自定义模型未经测试
-                // Ok(result
-                //     .iter()
-                //     .filter(|&&v| {
-                //         if v != 0 && v != last_item {
-                //             last_item = v;
-                //             true
-                //         } else {
-                //             false
-                //         }
-                //     })
-                //     .map(|&v| charset[v as usize].to_string())
-                //     .collect::<String>())
+                let result = &self.session.run::<_, u32, _>(vec![tensor])?[0];
 
-                todo!()
+                let mut last_item = 0;
+
+                Ok(result
+                    .iter()
+                    .filter(|&&v| {
+                        if v != 0 && v != last_item {
+                            last_item = v;
+                            true
+                        } else {
+                            false
+                        }
+                    })
+                    .map(|&v| charset[v as usize].to_string())
+                    .collect::<String>())
             } else {
+                let result = &self.session.run::<_, f32, _>(vec![tensor])?[0];
+
+                let mut last_item = 0;
+
                 // 输入长这样 [[[1,2,3,4], [1,2,3,4], [1,2,3,4]]]
                 // 我们要获取   ^^^^^^^^^  ^^^^^^^^^  ^^^^^^^^^
                 // 最后结果 [3, 3, 3]
