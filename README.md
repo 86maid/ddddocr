@@ -263,6 +263,11 @@ Options:
           监听端口 [default: 9898]
   -f, --full
           开启所有选项
+      --jsonp
+          开启跨域，需要一个 query 指定回调函数的名字，不能使用 file (multipart) 传递参数， 例如 http://127.0.0.1:9898/ocr/b64/text?callback=handle&image=xxx
+      --ocr
+          开启内容识别，支持新旧模型共存
+      --old
           开启旧版模型内容识别，支持新旧模型共存
       --det
           开启目标检测
@@ -318,11 +323,18 @@ import base64
 host = "http://127.0.0.1:9898"
 file = open('./image/3.png', 'rb').read()
 
+# 测试 jsonp，只能使用 b64，不能使用 file
+api_url = f"{host}/ocr/b64/text" 
+resp = requests.get(api_url, params = {
+  "callback": "handle",
+  "image": base64.b64encode(file).decode(),
+})
+print(f"jsonp, api_url={api_url}, resp.text={resp.text}")
+
+# 测试 ocr
 api_url = f"{host}/ocr/file/text"
 resp = requests.post(api_url, files={'image': file})
-
-print(f"{api_url=}, {resp.text=}")
-
+print(f"api_url={api_url}, resp.text={resp.text}")
 ```
 
 # 疑难杂症

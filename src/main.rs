@@ -1,15 +1,16 @@
 use actix_multipart::Multipart;
 use actix_web::{
     route,
-    web::{self, Bytes, BytesMut, Payload},
-    App, HttpRequest, HttpServer, Responder,
+    test::TestRequest,
+    web::{self, Bytes, BytesMut, Payload, Query},
+    App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
 use anyhow::ensure;
 use base64::{engine::general_purpose, Engine};
 use clap::Parser;
 use ddddocr::{Charset, Ddddocr, MapJson};
 use futures_util::StreamExt;
-use std::{fmt::Debug, str::FromStr};
+use std::{collections::HashMap, fmt::Debug, str::FromStr};
 
 static mut OCR: Option<Ddddocr<'static>> = None;
 static mut OLD: Option<Ddddocr<'static>> = None;
@@ -31,6 +32,11 @@ struct MainArgs {
     /// 开启所有选项
     #[arg(short, long)]
     full: bool,
+
+    /// 开启跨域，需要一个 query 指定回调函数的名字，不能使用 file (multipart) 传递参数，
+    /// 例如 http://127.0.0.1:9898/ocr/b64/text?callback=handle&image=xxx
+    #[arg(long)]
+    jsonp: bool,
 
     /// 开启内容识别，支持新旧模型共存
     #[arg(long)]
@@ -95,11 +101,66 @@ async fn handle_abc(
 ) -> impl Responder {
     let (option, image_type, result_type) = args.into_inner();
 
+    let map_ok = |value: String| {
+        if result_type == "json" {
+            if option == "ocr" || option == "old" {
+                serde_json::json!({
+                    "status": 200,
+                    "result": value,
+                })
+                .to_string()
+            } else {
+                // 不要使用双引号，因为 value 是数组
+                format!(r#"{{"status":200,"result":{}}}"#, value)
+            }
+        } else {
+            value
+        }
+    };
+
+    let map_error = |value: String| {
+        if result_type == "json" {
+            serde_json::json!({
+                "status": 404,
+                "msg": value,
+            })
+            .to_string()
+        } else {
+            // 失败返回空文本
+            "".to_string()
+        }
+    };
+
+    let qs = request.query_string().to_string();
+
+    let mut callback = String::new();
+
+    if unsafe { FLAG } & 8 == 8 {
+        if let Ok(v) = Query::<HashMap<String, String>>::from_query(&qs) {
+            if let Some(v) = v.get("callback") {
+                if v.is_empty() {
+                    return HttpResponse::BadRequest()
+                        .content_type("application/javascript")
+                        .body("alert(\"预期之外的 query: 找到键名 callback, 但是没有键值\")");
+                }
+
+                callback = v.clone();
+            }
+        };
+    }
+
     unsafe {
         let inner = || async {
             match option.as_str() {
                 "ocr" if OCR.is_some() => {
-                    let file = get_file(image_type, content, request, &["image"]).await?;
+                    let file = get_file_jsonp(
+                        image_type,
+                        content,
+                        request,
+                        !callback.is_empty(),
+                        &["image"],
+                    )
+                    .await?;
 
                     ensure!(file.len() == 1, "不支持多个图片");
 
@@ -114,7 +175,14 @@ async fn handle_abc(
                     )
                 }
                 "old" if OLD.is_some() => {
-                    let file = get_file(image_type, content, request, &["image"]).await?;
+                    let file = get_file_jsonp(
+                        image_type,
+                        content,
+                        request,
+                        !callback.is_empty(),
+                        &["image"],
+                    )
+                    .await?;
 
                     ensure!(file.len() == 1, "不支持多个图片");
 
@@ -129,7 +197,14 @@ async fn handle_abc(
                     )
                 }
                 "det" if DET.is_some() => {
-                    let file = get_file(image_type, content, request, &["image"]).await?;
+                    let file = get_file_jsonp(
+                        image_type,
+                        content,
+                        request,
+                        !callback.is_empty(),
+                        &["image"],
+                    )
+                    .await?;
 
                     ensure!(file.len() == 1, "不支持多个图片");
 
@@ -143,7 +218,14 @@ async fn handle_abc(
                         .json())
                 }
                 "ocr_probability" if OCR_PROBABILITY.is_some() => {
-                    let file = get_file(image_type, content, request, &["image"]).await?;
+                    let file = get_file_jsonp(
+                        image_type,
+                        content,
+                        request,
+                        !callback.is_empty(),
+                        &["image"],
+                    )
+                    .await?;
 
                     ensure!(file.len() == 1, "不支持多个图片");
 
@@ -160,7 +242,14 @@ async fn handle_abc(
                     .unwrap()?)
                 }
                 "old_probability" if OLD_PROBABILITY.is_some() => {
-                    let file = get_file(image_type, content, request, &["image"]).await?;
+                    let file = get_file_jsonp(
+                        image_type,
+                        content,
+                        request,
+                        !callback.is_empty(),
+                        &["image"],
+                    )
+                    .await?;
 
                     ensure!(file.len() == 1, "不支持多个图片");
 
@@ -177,8 +266,14 @@ async fn handle_abc(
                     .unwrap()?)
                 }
                 "match" if FLAG & 1 == 1 => {
-                    let file =
-                        get_file(image_type, content, request, &["target", "background"]).await?;
+                    let file = get_file_jsonp(
+                        image_type,
+                        content,
+                        request,
+                        !callback.is_empty(),
+                        &["target", "background"],
+                    )
+                    .await?;
 
                     ensure!(
                         file.len() == 2
@@ -195,8 +290,14 @@ async fn handle_abc(
                     }
                 }
                 "simple_match" if FLAG & 2 == 2 => {
-                    let file =
-                        get_file(image_type, content, request, &["target", "background"]).await?;
+                    let file = get_file_jsonp(
+                        image_type,
+                        content,
+                        request,
+                        !callback.is_empty(),
+                        &["target", "background"],
+                    )
+                    .await?;
 
                     ensure!(
                         file.len() == 2
@@ -215,8 +316,14 @@ async fn handle_abc(
                     }
                 }
                 "compare" if FLAG & 4 == 4 => {
-                    let file =
-                        get_file(image_type, content, request, &["target", "background"]).await?;
+                    let file = get_file_jsonp(
+                        image_type,
+                        content,
+                        request,
+                        !callback.is_empty(),
+                        &["target", "background"],
+                    )
+                    .await?;
 
                     ensure!(
                         file.len() == 2
@@ -240,40 +347,52 @@ async fn handle_abc(
             }
         };
 
-        let map_ok = |value: String| {
-            if result_type == "json" {
-                if option == "ocr" || option == "old" {
-                    serde_json::json!({
-                        "status": 200,
-                        "result": value,
-                    })
-                    .to_string()
-                } else {
-                    // 不要使用双引号，因为 value 是数组
-                    format!(r#"{{"status":200,"result":{}}}"#, value)
-                }
-            } else {
-                value
-            }
-        };
-
-        let map_error = |value: String| {
-            if result_type == "json" {
-                serde_json::json!({
-                    "status": 404,
-                    "msg": value,
-                })
-                .to_string()
-            } else {
-                // 失败返回空文本
-                "".to_string()
-            }
-        };
-
-        inner()
+        let result = inner()
             .await
             .map(map_ok)
-            .unwrap_or_else(|v| map_error(v.to_string()))
+            .unwrap_or_else(|v| map_error(v.to_string()));
+
+        // jsonp
+        if !callback.is_empty() {
+            return HttpResponse::Ok()
+                .content_type("application/javascript")
+                .body(format!(
+                    "{}(\"{}\")",
+                    callback,
+                    result.replace("\"", "\\\"")
+                ));
+        }
+
+        HttpResponse::Ok().body(result)
+    }
+}
+
+async fn get_file_jsonp(
+    image_type: String,
+    content: Payload,
+    request: HttpRequest,
+    jsonp: bool,
+    keys: &[&str],
+) -> anyhow::Result<Vec<(String, Bytes)>> {
+    if jsonp {
+        // 把 query 转换成 request，这样就可以偷懒啦！
+        let data = serde_json::to_string(
+            &Query::<HashMap<String, String>>::from_query(request.query_string())
+                .unwrap()
+                .0,
+        )
+        .map_err(|v| anyhow::anyhow!("预期之外的 query: {}", v))?;
+
+        let (a, mut b) = TestRequest::default().set_payload(data).to_http_parts();
+
+        let pl = <Payload as actix_web::FromRequest>::from_request(&a, &mut b)
+            .await
+            .unwrap();
+
+        // 这里的 request 不适用于 jsonp，只有 multipart 才有效
+        get_file(image_type, pl, request, keys).await
+    } else {
+        get_file(image_type, content, request, keys).await
     }
 }
 
@@ -325,27 +444,36 @@ async fn get_file(
         for i in buffer {
             let key = i.0.to_string();
 
-            if !keys.contains(&key.as_str()) {
-                anyhow::bail!(
-                    "预期之外的 key: 预期 {}, 但是找到 {}",
-                    keys.join(" or "),
-                    key
+            if keys.contains(&key.as_str()) {
+                let value = Bytes::from(
+                    general_purpose::STANDARD
+                        .decode(
+                            i.1.as_str()
+                                .map(|v| {
+                                    // 删除 base64 的文件头
+                                    if let Some(pos) = v.find(',') {
+                                        &v[pos + 1..]
+                                    } else {
+                                        v
+                                    }
+                                })
+                                .ok_or(anyhow::anyhow!(
+                            "预期之外的类型: key {} 对应的 value 预期的类型是 string, 但是找到 {}",
+                            i.0,
+                            get_type_name(i.1)
+                        ))?,
+                        )
+                        .map_err(|v| {
+                            anyhow::anyhow!(
+                                "无法解码 base64: key {} 对应的 value 解码失败: {}",
+                                i.0,
+                                v
+                            )
+                        })?,
                 );
+
+                result.push((key, value));
             }
-
-            let value = Bytes::from(
-                general_purpose::STANDARD
-                    .decode(i.1.as_str().ok_or(anyhow::anyhow!(
-                        "预期之外的类型: key {} 对应的 value 预期的类型是 string, 但是找到 {}",
-                        i.0,
-                        get_type_name(i.1)
-                    ))?)
-                    .map_err(|v| {
-                        anyhow::anyhow!("无法解码 base64: key {} 对应的 value 解码失败: {}", i.0, v)
-                    })?,
-            );
-
-            result.push((key, value));
         }
     } else {
         let mut stream = Multipart::new(request.headers(), content);
@@ -353,21 +481,15 @@ async fn get_file(
         while let Some(v) = stream.next().await {
             let mut v = v.map_err(|v| anyhow::anyhow!("{v}"))?;
 
-            if !keys.contains(&v.name()) {
-                anyhow::bail!(
-                    "预期之外的 multipart name: 预期 {}, 但是找到 {}",
-                    keys.join(" or "),
-                    v.name()
-                )
+            if keys.contains(&v.name()) {
+                let mut buffer = BytesMut::new();
+
+                while let Some(v) = v.next().await {
+                    buffer.extend(v.map_err(|v| anyhow::anyhow!("{v}"))?);
+                }
+
+                result.push((v.name().to_string(), buffer.freeze()));
             }
-
-            let mut buffer = BytesMut::new();
-
-            while let Some(v) = v.next().await {
-                buffer.extend(v.map_err(|v| anyhow::anyhow!("{v}"))?);
-            }
-
-            result.push((v.name().to_string(), buffer.freeze()));
         }
     }
 
@@ -384,6 +506,12 @@ async fn main() {
     let mut diy = false;
 
     unsafe {
+        if args.jsonp {
+            FLAG |= 8;
+
+            println!("开启 jsonp 成功");
+        }
+
         if args.ocr || args.full {
             let model = std::fs::read(args.ocr_path.clone() + ".onnx").expect("打开模型失败");
 
