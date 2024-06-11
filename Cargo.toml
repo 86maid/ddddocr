@@ -18,7 +18,12 @@ anyhow = "1.0"
 image = "0.24.0"
 imageproc = "0.23.0"
 sha256 = "1.1.3"
-actix-web = "4.3.1"
+actix-web = { version = "4", default-features = false, features = [
+  "cookies",
+  "macros",
+  "compress-gzip",
+  "compress-brotli",
+] }
 clap = { version = "4.2.7", features = ["derive"] }
 actix-multipart = "0.6.0"
 tokio = { version = "1.28.1", features = ["full"] }
