@@ -947,6 +947,7 @@ impl<'a> Ddddocr<'a> {
         for i in 0..height {
             for j in 0..width {
                 let now = image[[0, i, j]] as f32;
+
                 if self.diy {
                     // 自定义模型
                     if channel == 1 {
@@ -997,6 +998,7 @@ impl<'a> Ddddocr<'a> {
                 // 输入长这样 [[[1,2,3,4], [1,2,3,4], [1,2,3,4]]]
                 // 我们要获取   ^^^^^^^^^  ^^^^^^^^^  ^^^^^^^^^
                 // 最后结果 [3, 3, 3]
+                // 这是最大值的索引
                 let result = result
                     .rows()
                     .into_iter()
@@ -1057,6 +1059,8 @@ impl<'a> Ddddocr<'a> {
         let ratio = x.min(y);
         let width = (original_image.width() as f32 * ratio) as u32;
         let hight = (original_image.height() as f32 * ratio) as u32;
+
+        // todo: 要不要使用 resize_exact？
         let image = original_image
             .resize(width, hight, image::imageops::FilterType::Triangle)
             .to_rgb8();
@@ -1073,6 +1077,7 @@ impl<'a> Ddddocr<'a> {
         let h = MODEL_HEIGHT as usize;
         let mut input_tensor =
             onnxruntime::ndarray::Array::from_shape_vec((1, 3, h, w), vec![0f32; 3 * h * w])?;
+
         for i in 0..image.width() {
             for j in 0..image.height() {
                 // 为什么这里的 x 和 y 是相反的？
@@ -1095,17 +1100,21 @@ impl<'a> Ddddocr<'a> {
         let mut result = Vec::new();
         for i in 0..output_tensor.len() / 6 {
             let scores = output_tensor[[0, i, 4]] * output_tensor[[0, i, 5]];
+
             if scores < SCORE_THR {
                 continue;
             }
+
             let mut x1 = output_tensor[[0, i, 0]];
             let mut y1 = output_tensor[[0, i, 1]];
             let mut x2 = output_tensor[[0, i, 2]];
             let mut y2 = output_tensor[[0, i, 3]];
+
             x1 = (x1 + GRIDS[i * 2] as f32) * EXPANDED_STRIDES[i] as f32;
             y1 = (y1 + GRIDS[i * 2 + 1] as f32) * EXPANDED_STRIDES[i] as f32;
             x2 = x2.exp() * EXPANDED_STRIDES[i] as f32;
             y2 = y2.exp() * EXPANDED_STRIDES[i] as f32;
+
             result.push(ScoresBBox {
                 scores,
                 x1: (x1 - x2 / 2f32) / gain,
@@ -1249,6 +1258,13 @@ mod tests {
             "{}",
             ddddocr
                 .classification(include_bytes!("../image/4.png"), false)
+                .unwrap()
+        );
+
+        println!(
+            "{}",
+            ddddocr
+                .classification(include_bytes!("../image/su.png"), false)
                 .unwrap()
         );
     }
