@@ -731,20 +731,20 @@ impl<'a> Ddddocr<'a> {
         // 使用 ANTIALIAS (Lanczos3) 缩放图片
         let image = if resize[0] == -1 {
             if word {
-                image.resize(
+                image.resize_exact(
                     resize[1] as u32,
                     resize[1] as u32,
                     image::imageops::FilterType::Lanczos3,
                 )
             } else {
-                image.resize(
+                image.resize_exact(
                     image.width() * resize[1] as u32 / image.height(),
                     resize[1] as u32,
                     image::imageops::FilterType::Lanczos3,
                 )
             }
         } else {
-            image.resize(
+            image.resize_exact(
                 resize[0] as u32,
                 resize[1] as u32,
                 image::imageops::FilterType::Lanczos3,
@@ -899,20 +899,20 @@ impl<'a> Ddddocr<'a> {
         // 使用 ANTIALIAS (Lanczos3) 缩放图片
         let image = if resize[0] == -1 {
             if word {
-                image.resize(
+                image.resize_exact(
                     resize[1] as u32,
                     resize[1] as u32,
                     image::imageops::FilterType::Lanczos3,
                 )
             } else {
-                image.resize(
+                image.resize_exact(
                     image.width() * resize[1] as u32 / image.height(),
                     resize[1] as u32,
                     image::imageops::FilterType::Lanczos3,
                 )
             }
         } else {
-            image.resize(
+            image.resize_exact(
                 resize[0] as u32,
                 resize[1] as u32,
                 image::imageops::FilterType::Lanczos3,
