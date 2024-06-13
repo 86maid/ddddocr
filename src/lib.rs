@@ -32,57 +32,64 @@ where
 
     anyhow::ensure!(
         background_image.width() >= target_image.width(),
-        "背景图片的宽度必须大于等于目标图标的宽度"
+        "背景图片的宽度必须大于等于目标图片的宽度"
     );
+
     anyhow::ensure!(
         background_image.height() >= target_image.height(),
-        "背景图片的高度必须大于等于目标图标的高度"
+        "背景图片的高度必须大于等于目标图片的高度"
     );
 
-    // 裁剪图片
-    let image = target_image.to_rgba8();
+    let target_image = target_image.to_rgba8();
 
-    let mut target_x = 0;
-    let mut target_y = 0;
+    // 裁剪图片，只保留不透明部分
+    let width = target_image.width();
+    let height = target_image.height();
+    let mut start_x = width;
+    let mut start_y = height;
     let mut end_x = 0;
     let mut end_y = 0;
-    for x in 0..image.width() {
-        for y in 0..image.height() {
-            let p = image[(x, y)];
-            if p[3] == 0 {
-                if target_y != 0 && end_y == 0 {
-                    end_y = y;
+
+    for x in 0..width {
+        for y in 0..height {
+            let p = target_image[(x, y)];
+
+            if p[3] != 0 {
+                if x < start_x {
+                    start_x = x;
                 }
-                if target_x != 0 && end_x == 0 {
+
+                if y < start_y {
+                    start_y = y;
+                }
+
+                if x > end_x {
                     end_x = x;
                 }
-            } else if target_y == 0 {
-                target_y = y;
-                end_y = 0;
-            } else if y < target_y {
-                target_y = y;
-                end_y = 0;
+
+                if y > end_y {
+                    end_y = y;
+                }
             }
-        }
-        if target_x == 0 && target_y != 0 {
-            target_x = x;
-        }
-        if end_y != 0 {
-            end_x = x;
         }
     }
 
-    // 图片转换到灰度图
-    let target_image = image::imageops::grayscale(
-        &image::imageops::crop_imm(
-            &image,
-            target_x,
-            target_y,
-            end_x - target_x,
-            end_y - target_y,
+    let cropped_image = if start_x > end_x || start_y > end_y {
+        // 没有任何不透明的像素
+        target_image
+    } else {
+        image::imageops::crop_imm(
+            &target_image,
+            start_x,
+            start_y,
+            end_x - start_x + 1,
+            end_y - start_y + 1,
         )
-        .to_image(),
-    );
+        .to_image()
+    };
+
+    // 图片转换到灰度图
+    let target_image = image::imageops::grayscale(&cropped_image);
 
     // 使用 canny 进行边缘检测。然后对背景图片进行同样的处理
     // 接着，使用 match_template 函数进行模板匹配，得到匹配结果矩阵
@@ -90,14 +97,15 @@ where
     // 并得到最大值所在的位置 loc，根据目标图片的大小和 loc 计算出目标物体的位置信息
     let target_image = imageproc::edges::canny(&target_image, 100.0, 200.0);
     let background_image = imageproc::edges::canny(&background_image.to_luma8(), 100.0, 200.0);
-    let result = imageproc::template_matching::match_template(
-        &background_image,
-        &target_image,
-        imageproc::template_matching::MatchTemplateMethod::CrossCorrelationNormalized,
-    );
-    let result = imageproc::template_matching::find_extremes(&result);
+    let result =
+        imageproc::template_matching::find_extremes(&imageproc::template_matching::match_template(
+            &background_image,
+            &target_image,
+            imageproc::template_matching::MatchTemplateMethod::CrossCorrelationNormalized,
+        ));
+
     Ok(SlideBBox {
-        target_y,
+        target_y: start_y,
         x1: result.max_value_location.0,
         y1: result.max_value_location.1,
         x2: result.max_value_location.0 + target_image.width(),
@@ -137,6 +145,7 @@ where
         background_image.width() >= target_image.width(),
         "背景图片的宽度必须大于等于目标图标的宽度"
     );
+
     anyhow::ensure!(
         background_image.height() >= target_image.height(),
         "背景图片的高度必须大于等于目标图标的高度"
@@ -148,12 +157,13 @@ where
     // 并得到最大值所在的位置 loc，根据目标图片的大小和 loc 计算出目标物体的位置信息
     let target_image = imageproc::edges::canny(&target_image.to_luma8(), 100.0, 200.0);
     let background_image = imageproc::edges::canny(&background_image.to_luma8(), 100.0, 200.0);
-    let result = imageproc::template_matching::match_template(
-        &background_image,
-        &target_image,
-        imageproc::template_matching::MatchTemplateMethod::CrossCorrelationNormalized,
-    );
-    let result = imageproc::template_matching::find_extremes(&result);
+    let result =
+        imageproc::template_matching::find_extremes(&imageproc::template_matching::match_template(
+            &background_image,
+            &target_image,
+            imageproc::template_matching::MatchTemplateMethod::CrossCorrelationNormalized,
+        ));
+
     Ok(SlideBBox {
         target_y: 0,
         x1: result.max_value_location.0,
@@ -190,11 +200,13 @@ where
 {
     let target_image = image::load_from_memory(target_image.as_ref())?;
     let background_image = image::load_from_memory(background_image.as_ref())?;
+
     anyhow::ensure!(
         target_image.width() == background_image.width()
             && target_image.height() == background_image.height(),
         "图片尺寸不相等"
     );
+
     let image = image::RgbImage::from_vec(
         target_image.width(),
         target_image.height(),
@@ -206,24 +218,31 @@ where
             .collect(),
     )
     .unwrap();
-    let mut start_y = 0;
+
     let mut start_x = 0;
+    let mut start_y = 0;
+
     for i in 0..image.width() {
         let mut count = 0;
+
         for j in 0..image.height() {
             let pixel = image[(i, j)];
+
             if pixel != image::Rgb([0, 0, 0]) {
                 count += 1;
             }
+
             if count >= 5 && start_y == 0 {
                 start_y = j - 5;
             }
         }
+
         if count >= 5 {
             start_x = i + 2;
             break;
         }
     }
+
     Ok((start_x, start_y))
 }
 
@@ -249,6 +268,7 @@ where
 {
     // 比较 common.onnx 和 common_old.onnx 的 sha256
     let sha256 = sha256::digest(model.as_ref());
+
     sha256 != "33b5cd351ee94e73a6bf8fa18c415ed8b819b3ffd342e267c30d8ad8334e34e8"
         && sha256 != "b8f2ad9cbc1f2e3922a6cb9459e30824e7e2467f3fb4fd61420640e34ea0bf68"
 }
@@ -384,13 +404,16 @@ lazy_static::lazy_static! {
         onnxruntime::environment::Environment::builder()
             .build()
             .expect("environment initialization exception");
+
     static ref _STATIC: (Vec<u32>, Vec<u32>) = {
         let mut grids = Vec::new();
         let mut expanded_strides = Vec::new();
         let hsizes = STRIDES.iter().map(|v| MODEL_HEIGHT / v).collect::<Vec<_>>();
         let wsizes = STRIDES.iter().map(|v| MODEL_WIDTH / v).collect::<Vec<_>>();
+
         fn meshgrid(x: u32, y: u32) -> Vec<u32> {
             let mut result = vec![0; (x * y * 2) as usize];
+
             for i in 0..x {
                 for j in 0..y {
                     let index = ((i * x + j) * 2) as usize;
@@ -400,17 +423,22 @@ lazy_static::lazy_static! {
             }
             result
         }
+
         for (i, v) in STRIDES.iter().enumerate() {
             let hsize = hsizes[i];
             let wsize = wsizes[i];
             let grid = meshgrid(hsize, wsize);
             let expanded_stride = vec![*v; (hsize * wsize) as usize];
+
             grids.extend(grid);
             expanded_strides.extend(expanded_stride);
         }
+
         (grids, expanded_strides)
     };
+
     static ref GRIDS: Vec<u32> = unsafe { std::mem::transmute_copy(&_STATIC.0) };
+
     static ref EXPANDED_STRIDES: Vec<u32> =  unsafe { std::mem::transmute_copy(&_STATIC.1) };
 }
 
@@ -1080,9 +1108,9 @@ impl<'a> Ddddocr<'a> {
 
         for i in 0..image.width() {
             for j in 0..image.height() {
-                // 为什么这里的 x 和 y 是相反的？
-                // 因为傻狗 opencv 中的 Mat::at 函数就是这么设计的
+                // 为什么这里他妈的 x 和 y 是相反的？
                 let now = image[(j, i)];
+
                 input_tensor[[0, 0, i as usize, j as usize]] = now[0] as f32;
                 input_tensor[[0, 1, i as usize, j as usize]] = now[1] as f32;
                 input_tensor[[0, 2, i as usize, j as usize]] = now[2] as f32;
@@ -1098,6 +1126,7 @@ impl<'a> Ddddocr<'a> {
         let y = MODEL_HEIGHT as f32 / original_image.height() as f32;
         let gain = x.min(y);
         let mut result = Vec::new();
+
         for i in 0..output_tensor.len() / 6 {
             let scores = output_tensor[[0, i, 4]] * output_tensor[[0, i, 5]];
 
@@ -1131,23 +1160,31 @@ impl<'a> Ddddocr<'a> {
         // 因此，NMS 的过程是从得分最高的边界框开始，逐渐筛选出最优的边界框
         let mut scores = Vec::new();
         let mut areas = Vec::new();
+
         for i in &result {
             scores.push(i.scores);
             areas.push((i.x2 - i.x1 + 1f32) * (i.y2 - i.y1 + 1f32));
         }
+
         let mut array = scores;
         let mut order = (0..array.len()).collect::<Vec<_>>();
+
         for i in 0..array.len() {
             for j in i + 1..array.len() {
                 array.swap(i, j);
                 order.swap(i, j);
             }
         }
+
         let mut keep = Vec::new();
+
         while !order.is_empty() {
             let i = order[0];
+
             keep.push(i);
+
             let mut new_order = Vec::new();
+
             for j in 1..order.len() {
                 let temp = result[order[j]];
                 let xx1 = result[i].x1.max(temp.x1);
@@ -1158,35 +1195,44 @@ impl<'a> Ddddocr<'a> {
                 let hh = 0f32.max(yy2 - yy1 + 1f32);
                 let inter = ww * hh;
                 let ovr = inter / (areas[j] + areas[order[j]] - inter);
+
                 if ovr <= NMS_THR {
                     new_order.push(order[j]);
                 }
             }
+
             order = new_order;
         }
+
         let mut new_result = Vec::new();
+
         for i in keep {
             let mut point = result[i];
+
             if point.x1 < 0f32 {
                 point.x1 = 0f32;
             } else if point.x1 > original_image.width() as f32 {
                 point.x1 = (original_image.width() - 1) as f32;
             }
+
             if point.y1 < 0f32 {
                 point.y1 = 0f32;
             } else if point.y1 > original_image.height() as f32 {
                 point.y1 = (original_image.height() - 1) as f32;
             }
+
             if point.x2 < 0f32 {
                 point.x2 = 0f32;
             } else if point.x2 > original_image.width() as f32 {
                 point.x2 = (original_image.width() - 1) as f32;
             }
+
             if point.y2 < 0f32 {
                 point.y2 = 0f32;
             } else if point.y2 > original_image.height() as f32 {
                 point.y2 = (original_image.height() - 1) as f32;
             }
+
             new_result.push(crate::BBox {
                 x1: point.x1 as u32,
                 y1: point.y1 as u32,
@@ -1194,6 +1240,7 @@ impl<'a> Ddddocr<'a> {
                 y2: point.y2 as u32,
             });
         }
+
         Ok(new_result)
     }
 
@@ -1307,20 +1354,25 @@ mod tests {
         let mut ddddocr = ddddocr_detection().unwrap();
         let input = include_bytes!("../image/5.jpg");
         let result = ddddocr.detection(input).unwrap();
+
         println!("{:?}", result);
 
         // 绘制红框
         let mut image = image::load_from_memory(input).unwrap().to_rgb8();
+
         for v in result {
             for i in v.x1 as u32..=v.x2 as u32 {
                 image[(i, v.y1 as u32)] = *image::Rgb::from_slice(&[237, 28, 36]);
             }
+
             for i in v.x1 as u32..=v.x2 as u32 {
                 image[(i, v.y2 as u32)] = *image::Rgb::from_slice(&[237, 28, 36]);
             }
+
             for i in v.y1 as u32..=v.y2 as u32 {
                 image[(v.x1 as u32, i)] = *image::Rgb::from_slice(&[237, 28, 36]);
             }
+
             for i in v.y1 as u32..=v.y2 as u32 {
                 image[(v.x2 as u32, i)] = *image::Rgb::from_slice(&[237, 28, 36]);
             }
@@ -1330,20 +1382,25 @@ mod tests {
 
         let input = include_bytes!("../image/6.jpg");
         let result = ddddocr.detection(input).unwrap();
+
         println!("{:?}", result);
 
         // 绘制红框
         let mut image = image::load_from_memory(input).unwrap().to_rgb8();
+
         for v in result {
             for i in v.x1 as u32..=v.x2 as u32 {
                 image[(i, v.y1 as u32)] = *image::Rgb::from_slice(&[237, 28, 36]);
             }
+
             for i in v.x1 as u32..=v.x2 as u32 {
                 image[(i, v.y2 as u32)] = *image::Rgb::from_slice(&[237, 28, 36]);
             }
+
             for i in v.y1 as u32..=v.y2 as u32 {
                 image[(v.x1 as u32, i)] = *image::Rgb::from_slice(&[237, 28, 36]);
             }
+
             for i in v.y1 as u32..=v.y2 as u32 {
                 image[(v.x2 as u32, i)] = *image::Rgb::from_slice(&[237, 28, 36]);
             }
@@ -1355,10 +1412,19 @@ mod tests {
     #[test]
     fn slide_match() {
         let result = crate::slide_match(
+            include_bytes!("../image/hk.png"),
+            include_bytes!("../image/bg.png"),
+        )
+        .unwrap();
+
+        println!("{:?}", result);
+
+        let result = crate::slide_match(
             include_bytes!("../image/a.png"),
             include_bytes!("../image/b.png"),
         )
         .unwrap();
+
         println!("{:?}", result);
 
         let result = crate::simple_slide_match(
@@ -1366,6 +1432,7 @@ mod tests {
             include_bytes!("../image/b.png"),
         )
         .unwrap();
+
         println!("{:?}", result);
     }
 
