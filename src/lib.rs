@@ -1,18 +1,16 @@
 /// 初始化内容识别。
 pub fn ddddocr_classification() -> anyhow::Result<Ddddocr<'static>> {
-    let charset = include_str!("../model/common.json");
     Ddddocr::new(
         include_bytes!("../model/common.onnx"),
-        serde_json::from_str(charset).unwrap(),
+        serde_json::from_str(include_str!("../model/common.json")).unwrap(),
     )
 }
 
 /// 使用旧模型初始化内容识别。
 pub fn ddddocr_classification_old() -> anyhow::Result<Ddddocr<'static>> {
-    let charset = include_str!("../model/common_old.json");
     Ddddocr::new(
         include_bytes!("../model/common_old.onnx"),
-        serde_json::from_str(charset).unwrap(),
+        serde_json::from_str(include_str!("../model/common_old.json")).unwrap(),
     )
 }
 
