@@ -351,9 +351,10 @@ impl CharacterProbability {
         let mut s = String::new();
 
         for i in &self.probability {
-            let n = i
+            let (n, _) = i
                 .iter()
-                .position(|v| v == i.iter().max_by(|a, b| a.total_cmp(b)).unwrap())
+                .enumerate()
+                .max_by(|(_, a), (_, b)| a.total_cmp(b))
                 .unwrap();
 
             s += &self.charset[n];
