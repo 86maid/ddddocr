@@ -865,7 +865,6 @@ impl<'a> Ddddocr<'a> {
         } else {
             // 根据指定的字符范围，从模型输出的概率结果中提取对应字符的概率
             // 如果字符不在字符集中，则将其概率设置为 -1.0，表示未知字符
-
             let mut probability_result_index = Vec::new();
 
             for i in &self.charset_range {
