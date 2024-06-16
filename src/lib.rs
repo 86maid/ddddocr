@@ -399,11 +399,6 @@ impl MapJson for CharacterProbability {
 }
 
 lazy_static::lazy_static! {
-    static ref ENVIRONMENT: onnxruntime::environment::Environment =
-        onnxruntime::environment::Environment::builder()
-            .build()
-            .expect("environment initialization exception");
-
     static ref _STATIC: (Vec<u32>, Vec<u32>) = {
         let mut grids = Vec::new();
         let mut expanded_strides = Vec::new();
@@ -509,7 +504,7 @@ impl From<String> for CharsetRange {
 #[derive(Debug)]
 pub struct Ddddocr<'a> {
     diy: bool,
-    session: onnxruntime::session::Session<'a>,
+    session: ort::Session,
     charset: Option<std::borrow::Cow<'a, Charset>>,
     charset_range: Vec<String>,
 }
@@ -529,9 +524,7 @@ impl<'a> Ddddocr<'a> {
     {
         Ok(Self {
             diy: is_diy(model.as_ref()),
-            session: ENVIRONMENT
-                .new_session_builder()?
-                .with_model_from_memory(model)?,
+            session: ort::Session::builder()?.commit_from_memory(model.as_ref())?,
             charset: Some(std::borrow::Cow::Owned(charset)),
             charset_range: Vec::new(),
         })
@@ -544,9 +537,7 @@ impl<'a> Ddddocr<'a> {
     {
         Ok(Self {
             diy: is_diy(model.as_ref()),
-            session: ENVIRONMENT
-                .new_session_builder()?
-                .with_model_from_memory(model)?,
+            session: ort::Session::builder()?.commit_from_memory(model.as_ref())?,
             charset: Some(std::borrow::Cow::Borrowed(charset)),
             charset_range: Vec::new(),
         })
@@ -560,10 +551,7 @@ impl<'a> Ddddocr<'a> {
     {
         Ok(Self {
             diy: Self::is_diy(model.as_ref()),
-            session: ENVIRONMENT
-                .new_session_builder()?
-                .use_cuda(device_id)?
-                .with_model_from_memory(model)?,
+            session: ort::Session::builder()?.commit_from_memory(model)?,
             charset: Some(charset),
             charset_range: Vec::new(),
         })
@@ -581,10 +569,7 @@ impl<'a> Ddddocr<'a> {
     {
         Ok(Self {
             diy: Self::is_diy(model.as_ref()),
-            session: ENVIRONMENT
-                .new_session_builder()?
-                .use_cuda(device_id)?
-                .with_model_from_memory(model)?,
+            session: ort::Session::builder()?.commit_from_memory(model)?,
             charset: Some(std::borrow::Cow::Borrowed(charset)),
             charset_range: Vec::new(),
         })
@@ -597,9 +582,7 @@ impl<'a> Ddddocr<'a> {
     {
         Ok(Self {
             diy: is_diy(model.as_ref()),
-            session: ENVIRONMENT
-                .new_session_builder()?
-                .with_model_from_memory(model)?,
+            session: ort::Session::builder()?.commit_from_memory(model.as_ref())?,
             charset: None,
             charset_range: Vec::new(),
         })
@@ -613,10 +596,7 @@ impl<'a> Ddddocr<'a> {
     {
         Ok(Self {
             diy: Self::is_diy(model.as_ref()),
-            session: ENVIRONMENT
-                .new_session_builder()?
-                .use_cuda(device_id)?
-                .with_model_from_memory(model)?,
+            session: ort::Session::builder()?.commit_from_memory(model)?,
             charset: None,
             charset_range: Vec::new(),
         })
@@ -791,9 +771,10 @@ impl<'a> Ddddocr<'a> {
         let channel = channel as usize;
         let width = image.width() as usize;
         let height = image.height() as usize;
+
         let image =
-            onnxruntime::ndarray::Array::from_shape_vec((channel, height, width), image_bytes)?;
-        let mut tensor = onnxruntime::ndarray::Array::from_shape_vec(
+            ndarray::Array::from_shape_vec((channel, height, width), image_bytes)?;
+        let mut tensor = ndarray::Array::from_shape_vec(
             (1, channel, height, width),
             vec![0f32; height * width],
         )?;
@@ -819,25 +800,26 @@ impl<'a> Ddddocr<'a> {
                 }
             }
         }
-
-        let ort_outs = &self.session.run::<_, f32, _>(vec![tensor])?[0];
+        // onnxruntime::session::Session::run
+        let ort_outs = &self.session.run(ort::inputs![tensor]?)?;
+        let ort_outs = &ort_outs[0].try_extract_tensor()?;
 
         // 长这样 [[[1,2,3,4]], [[1,2,3,4]], [[1,2,3,4]]]
         let ort_outs = ort_outs.mapv(|v| f32::exp(v)) / ort_outs.mapv(|v| f32::exp(v)).sum();
 
         // 长这样 [[1,2,3,4], [1,2,3,4], [1,2,3,4]]
-        let ort_outs_sum = ort_outs.sum_axis(onnxruntime::ndarray::Axis(2));
+        let ort_outs_sum = ort_outs.sum_axis(ndarray::Axis(2));
 
-        onnxruntime::ndarray::Array::<f32, _>::zeros(ort_outs.raw_dim());
+        ndarray::Array::<f32, _>::zeros(ort_outs.raw_dim());
 
         // 根据形状创建一个零数组
         let mut ort_outs_probability =
-            onnxruntime::ndarray::Array::<f32, _>::zeros(ort_outs.raw_dim());
+            ndarray::Array::<f32, _>::zeros(ort_outs.raw_dim());
 
         for i in 0..ort_outs.shape()[0] {
-            let mut a = ort_outs_probability.slice_mut(onnxruntime::ndarray::s![i, .., ..]);
-            let b = ort_outs.slice(onnxruntime::ndarray::s![i, .., ..]);
-            let c = ort_outs_sum.slice(onnxruntime::ndarray::s![i, ..]);
+            let mut a = ort_outs_probability.slice_mut(ndarray::s![i, .., ..]);
+            let b = ort_outs.slice(ndarray::s![i, .., ..]);
+            let c = ort_outs_sum.slice(ndarray::s![i, ..]);
             let d = &b / &c;
 
             a.assign(&d);
@@ -845,14 +827,14 @@ impl<'a> Ddddocr<'a> {
 
         // 调用 next 后，长这样 [[1,2,3,4], [1,2,3,4], [1,2,3,4]]
         let ort_outs_probability = ort_outs_probability
-            .axis_iter(onnxruntime::ndarray::Axis(1))
+            .axis_iter(ndarray::Axis(1))
             .next()
             .ok_or(anyhow::anyhow!("expect axis 1"))?;
 
         let mut result = Vec::new();
 
         // 扁平化
-        for i in ort_outs_probability.axis_iter(onnxruntime::ndarray::Axis(0)) {
+        for i in ort_outs_probability.axis_iter(ndarray::Axis(0)) {
             result.push(i.into_diag().to_vec());
         }
 
@@ -962,9 +944,9 @@ impl<'a> Ddddocr<'a> {
         let height = image.height() as usize;
 
         let image =
-            onnxruntime::ndarray::Array::from_shape_vec((channel, height, width), image_bytes)?;
+            ndarray::Array::from_shape_vec((channel, height, width), image_bytes)?;
 
-        let mut tensor = onnxruntime::ndarray::Array::from_shape_vec(
+        let mut tensor = ndarray::Array::from_shape_vec(
             (1, channel, height, width),
             vec![0f32; height * width],
         )?;
@@ -993,14 +975,15 @@ impl<'a> Ddddocr<'a> {
         }
 
         if word {
-            Ok(self.session.run::<_, i64, _>(vec![tensor])?[1]
+            Ok((&self.session.run(ort::inputs![tensor]?)?[0]).try_extract_tensor::<i64>()?
                 .iter()
                 .map(|&v| charset[v as usize].to_string())
                 .collect::<String>())
         } else {
             if self.diy {
                 // todo: 自定义模型未经测试
-                let result = &self.session.run::<_, u32, _>(vec![tensor])?[0];
+                let result = &self.session.run(ort::inputs![tensor]?)?[0];
+                let result = result.try_extract_tensor()?;
 
                 let mut last_item = 0;
 
@@ -1017,7 +1000,8 @@ impl<'a> Ddddocr<'a> {
                     .map(|&v| charset[v as usize].to_string())
                     .collect::<String>())
             } else {
-                let result = &self.session.run::<_, f32, _>(vec![tensor])?[0];
+                let result = &self.session.run(ort::inputs![tensor]?)?[0];
+                let result = result.try_extract_tensor::<f64>()?;
 
                 let mut last_item = 0;
 
@@ -1102,7 +1086,7 @@ impl<'a> Ddddocr<'a> {
         let w = MODEL_WIDTH as usize;
         let h = MODEL_HEIGHT as usize;
         let mut input_tensor =
-            onnxruntime::ndarray::Array::from_shape_vec((1, 3, h, w), vec![0f32; 3 * h * w])?;
+            ndarray::Array::from_shape_vec((1, 3, h, w), vec![0f32; 3 * h * w])?;
 
         for i in 0..image.width() {
             for j in 0..image.height() {
@@ -1119,7 +1103,8 @@ impl<'a> Ddddocr<'a> {
         // 然后对每个物体进行检测，如果其得分小于 SCORE_THR，则跳过该物体
         // 接着，对物体的坐标进行调整，最后将调整后的坐标加入到结果列表中
         // 最后，对结果列表中的物体进行非极大值抑制 (NMS) 处理，得到最终的检测结果
-        let output_tensor = &self.session.run::<_, f32, _>(vec![input_tensor])?[0];
+        let output_tensor = &self.session.run(ort::inputs![input_tensor]?)?[0];
+        let output_tensor = output_tensor.try_extract_tensor::<f32>()?;
         let x = MODEL_WIDTH as f32 / original_image.width() as f32;
         let y = MODEL_HEIGHT as f32 / original_image.height() as f32;
         let gain = x.min(y);
