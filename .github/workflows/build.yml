@@ -1,0 +1,50 @@
+name: Build and Save Artifacts for Multiple Platforms
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build project for Windows
+        run: cargo build --release
+
+      - name: Archive artifacts for Windows
+        uses: actions/upload-artifact@v2
+        with:
+          name: my-build-artifacts-windows
+          path: ./target/release/ddddocr.exe
+
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build project for Linux
+        run: cargo build --release
+
+      - name: Archive artifacts for Linux
+        uses: actions/upload-artifact@v2
+        with:
+          name: my-build-artifacts-linux
+          path: ./target/release/ddddocr
+
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build project for macOS
+        run: cargo build --release
+
+      - name: Archive artifacts for macOS
+        uses: actions/upload-artifact@v2
+        with:
+          name: my-build-artifacts-macos
+          path: ./target/release/ddddocr

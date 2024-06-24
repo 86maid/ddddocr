@@ -52,14 +52,14 @@ struct MainArgs {
 
     /// 开启内容概率识别，支持新旧模型共存，只能使用官方模型，
     /// 如果参数是 0 到 7，对应内置的字符集，
-    /// 如果参数空字符串，表示默认字符集，
+    /// 如果参数为空字符串，表示默认字符集，
     /// 除此之外的参数，表示自定义字符集，例如 "0123456789+-x/="
     #[arg(long)]
     ocr_probability: Option<String>,
 
     /// 开启旧版模型内容概率识别，支持新旧模型共存，只能使用官方模型，
     /// 如果参数是 0 到 7，对应内置的字符集，
-    /// 如果参数空字符串，表示默认字符集，
+    /// 如果参数为空字符串，表示默认字符集，
     /// 除此之外的参数，表示自定义字符集，例如 "0123456789+-x/="
     #[arg(long)]
     old_probability: Option<String>,
@@ -236,7 +236,10 @@ async fn handle_abc(
                     Ok(tokio::task::spawn_blocking(move || {
                         ddddocr
                             .classification_probability(file, false)
-                            .map(|v| v.json())
+                            .map(|mut v| {
+                                v.get_text();
+                                v.json()
+                            })
                     })
                     .await
                     .unwrap()?)
@@ -260,7 +263,10 @@ async fn handle_abc(
                     Ok(tokio::task::spawn_blocking(move || {
                         ddddocr
                             .classification_probability(file, false)
-                            .map(|v| v.json())
+                            .map(|mut v| {
+                                v.get_text();
+                                v.json()
+                            })
                     })
                     .await
                     .unwrap()?)

@@ -35,6 +35,7 @@ a simple OCR API server, very easy to deploy。
 - [目录](#目录)
 - [环境支持](#环境支持)
 - [安装步骤](#安装步骤)
+  - [我们很高兴的宣布，从这个版本开始，我们不再需要依赖笨重的 DLL 链接库啦！](#我们很高兴的宣布从这个版本开始我们不再需要依赖笨重的-dll-链接库啦)
   - [如果你不想从源代码构建，这里有编译好的二进制版本。](#如果你不想从源代码构建这里有编译好的二进制版本)
 - [使用文档](#使用文档)
   - [OCR 识别](#ocr-识别)
@@ -57,15 +58,17 @@ a simple OCR API server, very easy to deploy。
 
 # 环境支持
 
-| 系统             | CPU | GPU | 备注                                                                                 |
-| ---------------- | --- | --- | ------------------------------------------------------------------------------------ |
-| Windows 64位     | √   | ?   | 部分版本 Windows 需要安装 <a href="https://www.ghxi.com/yxkhj.html">vc运行库</a>     |
-| Windows 32位     | √   | ?   | 部分版本 Windows 需要安装 <a href="https://www.ghxi.com/yxkhj.html">vc运行库</a>     |
-| Linux 64 / ARM64 | √   | ?   |                                                                                      |
-| Linux 32         | ×   | ?   |                                                                                      |
-| Macos X64        | √   | ?   | M1/M2/M3 ... 芯片参考<a href="https://github.com/sml2h3/ddddocr/issues/67"> #67 </a> |
+| 系统             | CPU | GPU | 备注                                                                                                 |
+| ---------------- | --- | --- | ---------------------------------------------------------------------------------------------------- |
+| Windows 64位     | √   | ?   | 部分版本 Windows 需要安装 <a href="https://www.ghxi.com/yxkhj.html">vc 运行库</a>                    |
+| Windows 32位     | √   | ?   | 不支持静态链接，部分版本 Windows 需要安装 <a href="https://www.ghxi.com/yxkhj.html">vc 运行库</a>    |
+| Linux 64 / ARM64 | √   | ?   | 可能需要升级 glibc 版本， <a href=https://www.cnblogs.com/fireinstone/p/18169273>升级 glibc 版本</a> |
+| Linux 32         | ×   | ?   |                                                                                                      |
+| Macos X64        | √   | ?   | M1/M2/M3 ... 芯片参考<a href="https://github.com/sml2h3/ddddocr/issues/67"> #67 </a>                 |
 
 # 安装步骤
+
+## 我们很高兴的宣布，从这个版本开始，我们不再需要依赖笨重的 DLL 链接库啦！
 
 `lib.rs` 实现了 `ddddocr`。
 
@@ -79,7 +82,17 @@ a simple OCR API server, very easy to deploy。
 
 开启 `cuda` 需要 `cuda 11` 的 `nvidia gpu` (不确定 `cuda 10` 是否有效)
 
-请确保 onnxruntime 的动态链接库在程序的运行目录里面，否则运行会恐慌！
+默认使用静态链接，构建时将会自动下载静态链接库，请设置好代理，`cuda` 特性不支持静态链接。
+
+开启动态链接特性 `ddddocr = { git = "https://github.com/86maid/ddddocr.git", branch = "master", features = ["load-dynamic"] }`
+
+开启 `load-dynamic` 特性后，可以使用 `Ddddocr::set_onnxruntime_path` 指定 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.17.3) 链接库的路径。
+
+注意，从这个版本开始，开启 `load-dynamic` 特性后，构建时将不会自动下载 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.17.3) 链接库。
+
+请手动下载 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.17.3) 链接库，并将其放置在程序运行目录下（或系统 API 目录），这样无需再次调用 `Ddddocr::set_onnxruntime_path`。
+
+如有更多问题，请跳转至[疑难杂症](#疑难杂症)部分。
 
 ## 如果你不想从源代码构建，这里有编译好的[二进制版本](https://github.com/86maid/ddddocr/releases)。
 
@@ -219,7 +232,7 @@ println!("{:?}", res);
 let image = std::fs::read("image.png").unwrap();
 let mut ocr = ddddocr::ddddocr_classification().unwrap();
 
-// 数字 3 对应枚举 CharsetRange::LowercaseUppercase
+// 数字 3 对应枚举 CharsetRange::LowercaseUppercase，不用写枚举
 // ocr.set_ranges(3);
 
 // 自定义字符集
@@ -272,9 +285,9 @@ Options:
       --det
           开启目标检测
       --ocr-probability <OCR_PROBABILITY>
-          开启内容概率识别，支持新旧模型共存，只能使用官方模型， 如果参数是 0 到 7，对应内置的字符集， 如果参数空字符串，表示默认字符集， 除此之外的参数，表示自定义字符集，例如 "0123456789+-x/="
+          开启内容概率识别，支持新旧模型共存，只能使用官方模型， 如果参数是 0 到 7，对应内置的字符集， 如果参数为空字符串，表示默认字符集， 除此之外的参数，表示自定义字符集，例如 "0123456789+-x/="
       --old-probability <OLD_PROBABILITY>
-          开启旧版模型内容概率识别，支持新旧模型共存，只能使用官方模型， 如果参数是 0 到 7，对应内置的字符集， 如果参数空字符串，表示默认字符集， 除此之外的参数，表示自定义字符集，例如 "0123456789+-x/="
+          开启旧版模型内容概率识别，支持新旧模型共存，只能使用官方模型， 如果参数是 0 到 7，对应内置的字符集， 如果参数为空字符串，表示默认字符集， 除此之外的参数，表示自定义字符集，例如 "0123456789+-x/="
       --ocr-path <OCR_PATH>
           内容识别模型以及字符集路径， 通过哈希值判断是否为自定义模型， 使用自定义模型会使 old 选项失效， 路径 model/common 对应模型 model/common.onnx 和字符集 model/common.json [default: model/common]
       --det-path <DET_PATH>
@@ -338,38 +351,17 @@ print(f"api_url={api_url}, resp.text={resp.text}")
 ```
 
 # 疑难杂症
-在 windows 上依赖 [onnxruntime.dll](https://github.com/microsoft/onnxruntime/releases/tag/v1.8.1)，需要将在压缩包的 `lib` 下的 [onnxruntime.dll](https://github.com/microsoft/onnxruntime/releases/tag/v1.8.1) 解压到运行目录或系统调用目录，`否则运行将会 panic (exit code: 0xc000007b)`。  
 
-在 `linux` 上依赖 [libonnxruntime.so.1.8.1](https://github.com/microsoft/onnxruntime/releases/tag/v1.8.1)，运行和构建的方式和 `windows` 平台大同小异。
+使用静态链接的方式构建时，会自动下载静态链接库，需要设置好代理。
 
-运行时出现以下错误，请设置环境变量 `LD_LIBRARY_PATH` 为 `libonnxruntime.so.1.8.1` 所在的目录。
+windows 静态链接失败，请安装 vs2022。
 
-```
-./ddddocr: error while loading shared libraries: libonnxruntime.so.1.8.1: cannot open shared object file: No such file or directory
-```
+linux x86-64 静态链接失败，请安装 gcc11 和 g++11，ubuntu ≥ 20.04
 
-在构建时有两种策略，可以设置环境变量 `ORT_STRATEGY` 的值为如下：
-1. (默认) `download` 自动从网上下载 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.8.1)。
-2. `system` 从本地安装 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.8.1)，此时要设置环境变量 `ORT_LIB_LOCATION` 的值为库的位置（解压），然后重启 VSCode 刷新环境变量。
+linux arm64 静态链接失败，需要 glibc ≥ 2.35 （Ubuntu ≥ 22.04）。
 
-在构建的时候，默认使用 `download` 策略，如果出现以下报错，这是因为自动下载依赖失败导致的，请设置好代理，或者手动下载 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.8.1)，并将其放在报错中所指 `into` 目录中（不要解压）。
+macOS 静态链接失败，需要 macOS ≥ 10.15。
 
-```
-error: failed to run custom build command for `onnxruntime-sys v0.0.14`
+动态链接需要 1.7.x 版本的 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.17.3)。
 
-Caused by:
-  process didn't exit successfully: `C:\Users\XChuang233\Desktop\ddddocr-rust\ddddocr\target\debug\build\onnxruntime-sys-d30ec19d280a0792\build-script-build` (exit code: 101)
-  --- stdout
-  strategy: "unknown"
-  cargo:rerun-if-changed=C:\Users\XChuang233\Desktop\ddddocr-rust\ddddocr\target\debug\build\onnxruntime-sys-1098f02db763c8b2\out\onnxruntime-win-x64-1.8.1.zip
-  Creating directory "C:\\Users\\XChuang233\\Desktop\\ddddocr-rust\\ddddocr\\target\\debug\\build\\onnxruntime-sys-1098f02db763c8b2\\out"
-  Downloading https://github.com/microsoft/onnxruntime/releases/download/v1.8.1/onnxruntime-win-x64-1.8.1.zip into C:\Users\XChuang233\Desktop\ddddocr-rust\ddddocr\target\debug\build\onnxruntime-sys-1098f02db763c8b2\out\onnxruntime-win-x64-1.8.1.zip
-```
-
-注意，如果你开启了 `cuda` 特性，则要下载 `gpu` 版本的 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.8.1)，可以设置 `ORT_STRATEGY` 的值为 `download ORT_USE_CUDA=1` 自动下载依赖。
-
-如果你在 linux 编译失败，尝试使用 `apt install binutils`，然后 `cargo clean`，再重新编译。
-
-如果你 linux 和 osx 版本编译失败，尝试使用 `cargo zigbuild`，这将使用 zig 的链接器，本人亲测，有奇效！
-
-其他疑难杂症请访问 [onnxruntime-rs](https://github.com/nbigaouette/onnxruntime-rs)。
+更多疑难杂症，请跳转至 [ort.pyke.io](https://ort.pyke.io/)。

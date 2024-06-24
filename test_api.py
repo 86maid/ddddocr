@@ -1,6 +1,5 @@
 import requests
 import base64
-from urllib import parse
 
 host = "http://127.0.0.1:9898"
 file = open('./image/3.png', 'rb').read()
@@ -117,6 +116,7 @@ print(f"api_url={api_url}, resp.text={resp.text}")
 # 测试目标检测
 # ===============================================================
 
+file = open('./image/5.jpg', 'rb').read()
 api_url = f"{host}/det/file/text"
 resp = requests.post(api_url, files={'image': file})
 print(f"api_url={api_url}, resp.text={resp.text}")
