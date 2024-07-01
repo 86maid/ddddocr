@@ -96,7 +96,7 @@ a simple OCR API server, very easy to deploy。
 
 ## 如果你不想从源代码构建，这里有编译好的[二进制版本](https://github.com/86maid/ddddocr/releases)。
 
-## [旧版本](https://github.com/86maid/ddddocr/commit/56b94a417374a836cfd6d0becc39dfe6d479f52f)。
+## [旧版本](https://github.com/86maid/ddddocr/tree/56b94a417374a836cfd6d0becc39dfe6d479f52f)。 
 
 # 使用文档
 
