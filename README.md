@@ -362,6 +362,8 @@ linux arm64 静态链接失败，需要 glibc ≥ 2.35 （Ubuntu ≥ 22.04）。
 
 macOS 静态链接失败，需要 macOS ≥ 10.15。
 
-动态链接需要 1.7.x 版本的 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.17.3)。
+如果要指定静态链接库的路径，可以设置环境变量 `ORT_LIB_LOCATION`，将其设置为 `.a` 或 `.lib` 文件的路径。
+
+动态链接需要 1.17.x 版本的 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.17.3)。
 
 更多疑难杂症，请跳转至 [ort.pyke.io](https://ort.pyke.io/)。
