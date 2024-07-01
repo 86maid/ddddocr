@@ -1118,6 +1118,45 @@ impl<'a> Ddddocr<'a> {
         self.classification(std::fs::read(path)?, png_fix)
     }
 
+    /// 根据坐标裁剪图片，然后进行内容识别。
+    pub fn classification_bbox<I>(
+        &mut self,
+        image: I,
+        bbox: &Vec<BBox>,
+    ) -> anyhow::Result<Vec<(BBox, String)>>
+    where
+        I: AsRef<[u8]>,
+    {
+        let image = image::load_from_memory(image.as_ref())?;
+
+        let mut result = Vec::new();
+
+        for i in bbox {
+            let mut buffer = std::io::Cursor::new(Vec::new());
+
+            // todo: 使用 png 格式会不会有问题啊？
+            image::imageops::crop_imm(&image, i.x1, i.y1, i.x2 - i.x1 + 1, i.y2 - i.y1 + 1)
+                .to_image()
+                .write_to(&mut buffer, image::ImageFormat::Png)?;
+
+            result.push((i.clone(), self.classification(buffer.into_inner(), false)?));
+        }
+
+        Ok(result)
+    }
+
+    /// 根据坐标裁剪图片，然后进行内容识别。
+    pub fn classification_bbox_with_path<P>(
+        &mut self,
+        path: P,
+        bbox: &Vec<BBox>,
+    ) -> anyhow::Result<Vec<(BBox, String)>>
+    where
+        P: AsRef<std::path::Path>,
+    {
+        self.classification_bbox(std::fs::read(path)?, bbox)
+    }
+
     /// 目标检测。
     pub fn detection<I>(&mut self, image: I) -> anyhow::Result<Vec<BBox>>
     where
@@ -1400,6 +1439,17 @@ mod tests {
                 .classification(include_bytes!("../image/4.png"), false)
                 .unwrap()
         );
+    }
+
+    #[test]
+    fn classification_bbox() {
+        let input = include_bytes!("../image/6.jpg");
+        let mut ddddocr = ddddocr_detection().unwrap();
+        let result = ddddocr.detection(input).unwrap();
+        let mut ddddocr = ddddocr_classification().unwrap();
+        let result = ddddocr.classification_bbox(input, &result).unwrap();
+
+        println!("{:?}", result);
     }
 
     #[test]
