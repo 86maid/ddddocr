@@ -35,7 +35,7 @@ a simple OCR API server, very easy to deploy。
 - [目录](#目录)
 - [环境支持](#环境支持)
 - [安装步骤](#安装步骤)
-  - [我们很高兴的宣布，从这个版本开始，我们不再需要依赖笨重的 DLL 链接库啦！](#我们很高兴的宣布从这个版本开始我们不再需要依赖笨重的-dll-链接库啦)
+  - [我们很高兴的宣布，从这个版本开始，我们不再需要依赖笨重的 DLL 啦！](#我们很高兴的宣布从这个版本开始我们不再需要依赖笨重的-dll-啦)
   - [如果你不想从源代码构建，这里有编译好的二进制版本。](#如果你不想从源代码构建这里有编译好的二进制版本)
   - [旧版本。](#旧版本)
 - [使用文档](#使用文档)
@@ -69,7 +69,7 @@ a simple OCR API server, very easy to deploy。
 
 # 安装步骤
 
-## 我们很高兴的宣布，从这个版本开始，我们不再需要依赖笨重的 DLL 链接库啦！
+## 我们很高兴的宣布，从这个版本开始，我们不再需要依赖笨重的 DLL 啦！
 
 `lib.rs` 实现了 `ddddocr`。
 
@@ -77,27 +77,13 @@ a simple OCR API server, very easy to deploy。
 
 `model` 目录是模型与字符集。
 
-依赖本库 `ddddocr = { git = "https://github.com/86maid/ddddocr.git", branch = "master" }`  
+依赖本库 
 
-开启 `cuda` 特性 `ddddocr = { git = "https://github.com/86maid/ddddocr.git", branch = "master", features = ["cuda"] }`
+`ddddocr = { git = "https://github.com/86maid/ddddocr.git", branch = "master" }`  
 
-`cuda` 和 `cuDNN` 都需要安装好。
+开启 `cuda` 特性
 
-`CUDA 12` 构建需要 `cuDNN 9.x`。
-
-`CUDA 11` 构建需要 `cuDNN 8.x`。
-
-不确定 `cuda 10` 是否有效。
-
-默认使用静态链接，构建时将会自动下载静态链接库，请设置好代理，`cuda` 特性不支持静态链接。
-
-开启动态链接特性 `ddddocr = { git = "https://github.com/86maid/ddddocr.git", branch = "master", features = ["load-dynamic"] }`
-
-开启 `load-dynamic` 特性后，可以使用 `Ddddocr::set_onnxruntime_path` 指定 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.18.1) 链接库的路径。
-
-开启 `load-dynamic` 特性后，构建时将不会自动下载 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.18.1) 链接库。
-
-请手动下载 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.18.1) 链接库，并将其放置在程序运行目录下（或系统 API 目录），这样无需再次调用 `Ddddocr::set_onnxruntime_path`。
+ `ddddocr = { git = "https://github.com/86maid/ddddocr.git", branch = "master", features = ["cuda"] }`
 
 如有更多问题，请跳转至[疑难杂症](#疑难杂症)部分。
 
@@ -361,7 +347,33 @@ print(f"api_url={api_url}, resp.text={resp.text}")
 
 # 疑难杂症
 
-使用静态链接的方式构建时，会自动下载静态链接库，需要设置好代理。
+`cuda` 和 `cuDNN` 都需要安装好。
+
+`CUDA 12` 构建需要 `cuDNN 9.x`。
+
+`CUDA 11` 构建需要 `cuDNN 8.x`。
+
+不确定 `cuda 10` 是否有效。
+
+默认使用静态链接，构建时将会自动下载链接库，请设置好代理，`cuda` 特性不支持静态链接（会自己下载动态链接库）。
+
+如果要指定静态链接库的路径，可以设置环境变量 `ORT_LIB_LOCATION`，设置后将不会自动下载链接库。
+
+例如，库路径为 `onnxruntime\build\Windows\Release\Release\onnxruntime.lib`，则 `ORT_LIB_LOCATION` 设置为 `onnxruntime\build\Windows\Release`。
+
+默认开启 `download-binaries` 特性，自动下载链接库。
+
+取消 `download-binaries` 特性 `ddddocr = { git = "https://github.com/86maid/ddddocr.git", branch = "master", [default-features = false ] }` 
+
+自动下载的链接库存放在 `C:\Users\<用户名>\AppData\ort.pyke.io`。
+
+开启动态链接特性 `ddddocr = { git = "https://github.com/86maid/ddddocr.git", branch = "master", features = ["load-dynamic"] }`
+
+开启 `load-dynamic` 特性后，可以使用 `Ddddocr::set_onnxruntime_path` 指定 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.18.1) 链接库的路径。
+
+开启 `load-dynamic` 特性后，构建时将不会自动下载 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.18.1) 链接库。
+
+请手动下载 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.18.1) 链接库，并将其放置在程序运行目录下（或系统 API 目录），这样无需再次调用 `Ddddocr::set_onnxruntime_path`。
 
 windows 静态链接失败，请安装 vs2022。
 
@@ -372,8 +384,6 @@ linux arm64 静态链接失败，需要 glibc ≥ 2.35 （Ubuntu ≥ 22.04）。
 macOS 静态链接失败，需要 macOS ≥ 10.15。
 
 cuda 在执行 `cargo test` 的时候可能会 `painc (exit code: 0xc000007b)`，这是因为自动生成的动态链接库是在 `target/debug` 目录下，需要手动复制到 `target/debug/deps` 目录下（cuda 目前不支持静态链接）。
-
-如果要指定静态链接库的路径，可以设置环境变量 `ORT_LIB_LOCATION`，将其设置为 `.a` 或 `.lib` 文件的路径。
 
 动态链接需要 1.18.x 版本的 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.18.1)。
 

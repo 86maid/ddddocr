@@ -6,9 +6,15 @@ edition = "2021"
 [features]
 load-dynamic = ["ort/load-dynamic"]
 cuda = ["ort/cuda"]
+download-binaries = ["ort/download-binaries"]
+default = ["download-binaries"]
 
 [dependencies]
-ort = { git = "https://github.com/pykeio/ort.git", rev = "0407adb" }
+ort = { git = "https://github.com/pykeio/ort.git", rev = "0407adb", default-features = false, features = [
+  "ndarray",
+  "half",
+  "copy-dylibs",
+] }
 ndarray = "0.15.6"
 lazy_static = "1.4.0"
 serde = { version = "1.0.158", features = ["derive"] }
