@@ -83,7 +83,7 @@ a simple OCR API server, very easy to deploy。
 
 开启 `cuda` 特性
 
- `ddddocr = { git = "https://github.com/86maid/ddddocr.git", branch = "master", features = ["cuda"] }`
+`ddddocr = { git = "https://github.com/86maid/ddddocr.git", branch = "master", features = ["cuda"] }`
 
 如有更多问题，请跳转至[疑难杂症](#疑难杂症)部分。
 
