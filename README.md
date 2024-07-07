@@ -81,6 +81,8 @@ a simple OCR API server, very easy to deploy。
 
 开启 `cuda` 特性 `ddddocr = { git = "https://github.com/86maid/ddddocr.git", branch = "master", features = ["cuda"] }`
 
+支持静态和动态链接，默认使用静态链接，构建时将会自动下载链接库，请设置好代理，`cuda` 特性不支持静态链接（会自己下载动态链接库）。
+
 如有更多问题，请跳转至[疑难杂症](#疑难杂症)部分。
 
 ## 如果你不想从源代码构建，这里有编译好的[二进制版本](https://github.com/86maid/ddddocr/releases)。
