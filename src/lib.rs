@@ -554,7 +554,29 @@ impl<'a> Ddddocr<'a> {
     where
         P: AsRef<std::path::Path>,
     {
-        Ok(ort::init_from(path.as_ref().to_string_lossy().to_string()).commit()?)
+        let path = path.as_ref();
+
+        let save = std::panic::take_hook();
+
+        std::panic::set_hook(Box::new(|_| {}));
+
+        let result = std::panic::catch_unwind(|| {
+            ort::init_from(path.to_string_lossy().to_string())
+                .commit()
+                .unwrap()
+        });
+
+        std::panic::set_hook(save);
+
+        result.map_err(|v| {
+            anyhow::anyhow!(
+                "{}",
+                v.downcast::<String>().unwrap_or(Box::new(format!(
+                    "failed to load the runtime library: {}",
+                    path.display()
+                )))
+            )
+        })
     }
 
     /// 从内存加载模型和字符集，只能使用内容识别，使用目标检测会恐慌。
@@ -1565,10 +1587,25 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "cuda")]
-    fn cuda() {
-        let _ = ddddocr_classification_cuda(114514).unwrap_err();
+    #[cfg(feature = "load-dynamic")]
+    fn ok_set_onnxruntime_path() {
+        let path = r#"C:\Users\XChuang233\Desktop\goujian\onnxruntime\build\Windows\Release\Release\onnxruntime.dll"#;
+        if std::fs::File::open(path).is_ok() {
+            assert!(Ddddocr::set_onnxruntime_path(path).is_err());
+        } else {
+            println!("no test file found")
+        }
+    }
 
+    #[test]
+    #[cfg(feature = "load-dynamic")]
+    fn error_set_onnxruntime_path() {
+        assert!(Ddddocr::set_onnxruntime_path("C:/Users/114514.dll").is_err());
+    }
+
+    #[test]
+    #[cfg(feature = "cuda")]
+    fn ok_cuda() {
         let mut ddddocr = ddddocr_classification_cuda(0).unwrap();
 
         println!(
@@ -1577,5 +1614,11 @@ mod tests {
                 .classification(include_bytes!("../image/3.png"), false)
                 .unwrap()
         );
+    }
+
+    #[test]
+    #[cfg(feature = "cuda")]
+    fn error_cuda() {
+        let mut ddddocr = ddddocr_classification_cuda(114514).unwrap();
     }
 }
