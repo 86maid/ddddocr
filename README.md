@@ -93,11 +93,11 @@ a simple OCR API server, very easy to deploy。
 
 开启动态链接特性 `ddddocr = { git = "https://github.com/86maid/ddddocr.git", branch = "master", features = ["load-dynamic"] }`
 
-开启 `load-dynamic` 特性后，可以使用 `Ddddocr::set_onnxruntime_path` 指定 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.18.0) 链接库的路径。
+开启 `load-dynamic` 特性后，可以使用 `Ddddocr::set_onnxruntime_path` 指定 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.18.1) 链接库的路径。
 
-开启 `load-dynamic` 特性后，构建时将不会自动下载 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.18.0) 链接库。
+开启 `load-dynamic` 特性后，构建时将不会自动下载 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.18.1) 链接库。
 
-请手动下载 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.18.0) 链接库，并将其放置在程序运行目录下（或系统 API 目录），这样无需再次调用 `Ddddocr::set_onnxruntime_path`。
+请手动下载 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.18.1) 链接库，并将其放置在程序运行目录下（或系统 API 目录），这样无需再次调用 `Ddddocr::set_onnxruntime_path`。
 
 如有更多问题，请跳转至[疑难杂症](#疑难杂症)部分。
 
@@ -375,6 +375,6 @@ cuda 在执行 `cargo test` 的时候可能会 `painc (exit code: 0xc000007b)`�
 
 如果要指定静态链接库的路径，可以设置环境变量 `ORT_LIB_LOCATION`，将其设置为 `.a` 或 `.lib` 文件的路径。
 
-动态链接需要 1.18.x 版本的 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.18.0)。
+动态链接需要 1.18.x 版本的 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.18.1)。
 
 更多疑难杂症，请跳转至 [ort.pyke.io](https://ort.pyke.io/)。
