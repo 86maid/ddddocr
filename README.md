@@ -77,13 +77,9 @@ a simple OCR API server, very easy to deploy。
 
 `model` 目录是模型与字符集。
 
-依赖本库 
+依赖本库 `ddddocr = {git = "https://github.com/86maid/ddddocr.git", branch = "master"}`  
 
-`ddddocr = { git = "https://github.com/86maid/ddddocr.git", branch = "master" }`  
-
-开启 `cuda` 特性
-
-`ddddocr = { git = "https://github.com/86maid/ddddocr.git", branch = "master", features = ["cuda"] }`
+开启 `cuda` 特性 `ddddocr = { git = "https://github.com/86maid/ddddocr.git", branch = "master", features = ["cuda"] }`
 
 如有更多问题，请跳转至[疑难杂症](#疑难杂症)部分。
 
