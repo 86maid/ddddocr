@@ -589,19 +589,24 @@ impl<'a> Ddddocr<'a> {
     where
         MODEL: AsRef<[u8]>,
     {
+        let builder = ort::Session::builder()?;
+
+        let cuda = ort::CUDAExecutionProvider::default()
+            .with_device_id(device_id)
+            .with_arena_extend_strategy(ort::ArenaExtendStrategy::NextPowerOfTwo)
+            .with_memory_limit(2 * 1024 * 1024 * 1024)
+            .with_conv_algorithm_search(ort::CUDAExecutionProviderCuDNNConvAlgoSearch::Exhaustive)
+            .with_copy_in_default_stream(true);
+
+        if !ort::ExecutionProvider::is_available(&cuda)? {
+            anyhow::bail!("Please compile ONNX Runtime with CUDA!")
+        }
+
+        ort::ExecutionProvider::register(&cuda, &builder)?;
+
         Ok(Self {
             diy: is_diy(model.as_ref()),
-            session: ort::Session::builder()?
-                .with_execution_providers([ort::CUDAExecutionProvider::default()
-                    .with_device_id(device_id)
-                    .with_arena_extend_strategy(ort::ArenaExtendStrategy::NextPowerOfTwo)
-                    .with_memory_limit(2 * 1024 * 1024 * 1024)
-                    .with_conv_algorithm_search(
-                        ort::CUDAExecutionProviderCuDNNConvAlgoSearch::Exhaustive,
-                    )
-                    .with_copy_in_default_stream(true)
-                    .build()])?
-                .commit_from_memory(model.as_ref())?,
+            session: builder.commit_from_memory(model.as_ref())?,
             charset: Some(std::borrow::Cow::Owned(charset)),
             charset_range: Vec::new(),
         })
@@ -617,19 +622,24 @@ impl<'a> Ddddocr<'a> {
     where
         MODEL: AsRef<[u8]>,
     {
+        let builder = ort::Session::builder()?;
+
+        let cuda = ort::CUDAExecutionProvider::default()
+            .with_device_id(device_id)
+            .with_arena_extend_strategy(ort::ArenaExtendStrategy::NextPowerOfTwo)
+            .with_memory_limit(2 * 1024 * 1024 * 1024)
+            .with_conv_algorithm_search(ort::CUDAExecutionProviderCuDNNConvAlgoSearch::Exhaustive)
+            .with_copy_in_default_stream(true);
+
+        if !ort::ExecutionProvider::is_available(&cuda)? {
+            anyhow::bail!("Please compile ONNX Runtime with CUDA!")
+        }
+
+        ort::ExecutionProvider::register(&cuda, &builder)?;
+
         Ok(Self {
             diy: is_diy(model.as_ref()),
-            session: ort::Session::builder()?
-                .with_execution_providers([ort::CUDAExecutionProvider::default()
-                    .with_device_id(device_id)
-                    .with_arena_extend_strategy(ort::ArenaExtendStrategy::NextPowerOfTwo)
-                    .with_memory_limit(2 * 1024 * 1024 * 1024)
-                    .with_conv_algorithm_search(
-                        ort::CUDAExecutionProviderCuDNNConvAlgoSearch::Exhaustive,
-                    )
-                    .with_copy_in_default_stream(true)
-                    .build()])?
-                .commit_from_memory(model.as_ref())?,
+            session: builder.commit_from_memory(model.as_ref())?,
             charset: Some(std::borrow::Cow::Borrowed(charset)),
             charset_range: Vec::new(),
         })
@@ -654,19 +664,24 @@ impl<'a> Ddddocr<'a> {
     where
         MODEL: AsRef<[u8]>,
     {
+        let builder = ort::Session::builder()?;
+
+        let cuda = ort::CUDAExecutionProvider::default()
+            .with_device_id(device_id)
+            .with_arena_extend_strategy(ort::ArenaExtendStrategy::NextPowerOfTwo)
+            .with_memory_limit(2 * 1024 * 1024 * 1024)
+            .with_conv_algorithm_search(ort::CUDAExecutionProviderCuDNNConvAlgoSearch::Exhaustive)
+            .with_copy_in_default_stream(true);
+
+        if !ort::ExecutionProvider::is_available(&cuda)? {
+            anyhow::bail!("Please compile ONNX Runtime with CUDA!")
+        }
+
+        ort::ExecutionProvider::register(&cuda, &builder)?;
+
         Ok(Self {
             diy: is_diy(model.as_ref()),
-            session: ort::Session::builder()?
-                .with_execution_providers([ort::CUDAExecutionProvider::default()
-                    .with_device_id(device_id)
-                    .with_arena_extend_strategy(ort::ArenaExtendStrategy::NextPowerOfTwo)
-                    .with_memory_limit(2 * 1024 * 1024 * 1024)
-                    .with_conv_algorithm_search(
-                        ort::CUDAExecutionProviderCuDNNConvAlgoSearch::Exhaustive,
-                    )
-                    .with_copy_in_default_stream(true)
-                    .build()])?
-                .commit_from_memory(model.as_ref())?,
+            session: builder.commit_from_memory(model.as_ref())?,
             charset: None,
             charset_range: Vec::new(),
         })
@@ -1547,5 +1562,20 @@ mod tests {
         )
         .unwrap();
         println!("{:?}", result);
+    }
+
+    #[test]
+    #[cfg(feature = "cuda")]
+    fn cuda() {
+        let _ = ddddocr_classification_cuda(114514).unwrap_err();
+
+        let mut ddddocr = ddddocr_classification_cuda(0).unwrap();
+
+        println!(
+            "{}",
+            ddddocr
+                .classification(include_bytes!("../image/3.png"), false)
+                .unwrap()
+        );
     }
 }

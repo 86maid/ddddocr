@@ -80,17 +80,23 @@ a simple OCR API server, very easy to deploy。
 
 开启 `cuda` 特性 `ddddocr = { git = "https://github.com/86maid/ddddocr.git", branch = "master", features = ["cuda"] }`
 
-开启 `cuda` 需要 `cuda 11` 的 `nvidia gpu` (不确定 `cuda 10` 是否有效)
+`cuda` 和 `cuDNN` 都需要安装好。
+
+`CUDA 12` 构建需要 `cuDNN 9.x`。
+
+`CUDA 11` 构建需要 `cuDNN 8.x`。
+
+不确定 `cuda 10` 是否有效。
 
 默认使用静态链接，构建时将会自动下载静态链接库，请设置好代理，`cuda` 特性不支持静态链接。
 
 开启动态链接特性 `ddddocr = { git = "https://github.com/86maid/ddddocr.git", branch = "master", features = ["load-dynamic"] }`
 
-开启 `load-dynamic` 特性后，可以使用 `Ddddocr::set_onnxruntime_path` 指定 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.17.3) 链接库的路径。
+开启 `load-dynamic` 特性后，可以使用 `Ddddocr::set_onnxruntime_path` 指定 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.18.0) 链接库的路径。
 
-注意，从这个版本开始，开启 `load-dynamic` 特性后，构建时将不会自动下载 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.17.3) 链接库。
+开启 `load-dynamic` 特性后，构建时将不会自动下载 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.18.0) 链接库。
 
-请手动下载 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.17.3) 链接库，并将其放置在程序运行目录下（或系统 API 目录），这样无需再次调用 `Ddddocr::set_onnxruntime_path`。
+请手动下载 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.18.0) 链接库，并将其放置在程序运行目录下（或系统 API 目录），这样无需再次调用 `Ddddocr::set_onnxruntime_path`。
 
 如有更多问题，请跳转至[疑难杂症](#疑难杂症)部分。
 
@@ -356,14 +362,16 @@ print(f"api_url={api_url}, resp.text={resp.text}")
 
 windows 静态链接失败，请安装 vs2022。
 
-linux x86-64 静态链接失败，请安装 gcc11 和 g++11，ubuntu ≥ 20.04
+linux x86-64 静态链接失败，请安装 gcc11 和 g++11，ubuntu ≥ 20.04。
 
 linux arm64 静态链接失败，需要 glibc ≥ 2.35 （Ubuntu ≥ 22.04）。
 
 macOS 静态链接失败，需要 macOS ≥ 10.15。
 
+cuda 在执行 `cargo test` 的时候可能会 `painc (exit code: 0xc000007b)`，这是因为自动生成的动态链接库是在 `target/debug` 目录下，需要手动复制到 `target/debug/deps` 目录下（cuda 目前不支持静态链接）。
+
 如果要指定静态链接库的路径，可以设置环境变量 `ORT_LIB_LOCATION`，将其设置为 `.a` 或 `.lib` 文件的路径。
 
-动态链接需要 1.17.x 版本的 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.17.3)。
+动态链接需要 1.18.x 版本的 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.18.0)。
 
 更多疑难杂症，请跳转至 [ort.pyke.io](https://ort.pyke.io/)。

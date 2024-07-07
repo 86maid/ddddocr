@@ -8,7 +8,7 @@ load-dynamic = ["ort/load-dynamic"]
 cuda = ["ort/cuda"]
 
 [dependencies]
-ort = "2.0.0-rc.2"
+ort = { git = "https://github.com/pykeio/ort.git", rev = "0407adb" }
 ndarray = "0.15.6"
 lazy_static = "1.4.0"
 serde = { version = "1.0.158", features = ["derive"] }
