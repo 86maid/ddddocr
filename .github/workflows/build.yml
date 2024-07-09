@@ -147,3 +147,75 @@ jobs:
         with:
           name: x86_64-apple-darwin-inline
           path: ./target/release/ddddocr
+
+  build-aarch64-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build project for AArch64 Linux
+        run: cargo build --release --target aarch64-unknown-linux-gnu
+
+      - name: Copy model folder for AArch64 Linux
+        run: |
+          cp -r ./model ./target/aarch64-unknown-linux-gnu/release/
+
+      - name: Archive artifacts for AArch64 Linux
+        uses: actions/upload-artifact@v2
+        with:
+          name: aarch64-unknown-linux-gnu
+          path: |
+            ./target/aarch64-unknown-linux-gnu/release/ddddocr
+            ./target/aarch64-unknown-linux-gnu/release/model
+
+  build-aarch64-linux-inline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build project for AArch64 Linux with inline-model feature
+        run: cargo build --release --target aarch64-unknown-linux-gnu --features "inline-model"
+
+      - name: Archive artifacts for AArch64 Linux with inline-model
+        uses: actions/upload-artifact@v2
+        with:
+          name: aarch64-unknown-linux-gnu-inline
+          path: ./target/aarch64-unknown-linux-gnu/release/ddddocr
+
+  build-aarch64-macos:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build project for AArch64 macOS
+        run: cargo build --release --target aarch64-apple-darwin
+
+      - name: Copy model folder for AArch64 macOS
+        run: |
+          cp -r ./model ./target/aarch64-apple-darwin/release/
+
+      - name: Archive artifacts for AArch64 macOS
+        uses: actions/upload-artifact@v2
+        with:
+          name: aarch64-apple-darwin
+          path: |
+            ./target/aarch64-apple-darwin/release/ddddocr
+            ./target/aarch64-apple-darwin/release/model
+
+  build-aarch64-macos-inline:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build project for AArch64 macOS with inline-model feature
+        run: cargo build --release --target aarch64-apple-darwin --features "inline-model"
+
+      - name: Archive artifacts for AArch64 macOS with inline-model
+        uses: actions/upload-artifact@v2
+        with:
+          name: aarch64-apple-darwin-inline
+          path: ./target/aarch64-apple-darwin/release/ddddocr
