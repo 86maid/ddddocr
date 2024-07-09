@@ -5,19 +5,19 @@ on:
 
 jobs:
   build-windows-x86:
-  runs-on: windows-latest
+    runs-on: windows-latest
 
-  steps:
-    - uses: actions/checkout@v4
+    steps:
+      - uses: actions/checkout@v4
 
-    - name: Build project for Windows
-      run: cargo build --release --target i686-pc-windows-msvc
+      - name: Build project for Windows
+        run: cargo build --release --target i686-pc-windows-msvc
 
-    - name: Archive artifacts for Windows
-      uses: actions/upload-artifact@v2
-      with:
-        name: my-build-artifacts-windows
-        path: ./target/release/ddddocr.exe
+      - name: Archive artifacts for Windows
+        uses: actions/upload-artifact@v2
+        with:
+          name: my-build-artifacts-windows
+          path: ./target/release/ddddocr.exe
 
   build-windows-x64:
     runs-on: windows-latest
