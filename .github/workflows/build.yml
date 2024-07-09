@@ -163,10 +163,14 @@ jobs:
         run: rustup target add aarch64-unknown-linux-gnu
 
       - name: Install AArch64 Linux toolchain and dependencies
-        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu cmake
+        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu build-essential libc6-dev-arm64-cross
+
+      - name: Set linker for AArch64 target
+        run: echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
 
       - name: Build project for AArch64 Linux
         run: |
+          export RUSTFLAGS="-L /usr/aarch64-linux-gnu/lib"
           cargo build --release --target aarch64-unknown-linux-gnu
 
       - name: Copy model folder for AArch64 Linux
@@ -196,10 +200,14 @@ jobs:
         run: rustup target add aarch64-unknown-linux-gnu
 
       - name: Install AArch64 Linux toolchain and dependencies
-        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu cmake
+        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu build-essential libc6-dev-arm64-cross
+
+      - name: Set linker for AArch64 target
+        run: echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
 
       - name: Build project for AArch64 Linux
         run: |
+          export RUSTFLAGS="-L /usr/aarch64-linux-gnu/lib"
           cargo build --release --target aarch64-unknown-linux-gnu --features "inline-model"
 
       - name: Archive artifacts for AArch64 Linux with inline-model
