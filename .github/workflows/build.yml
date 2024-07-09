@@ -13,11 +13,17 @@ jobs:
       - name: Build project for Windows x86
         run: cargo build --release --target i686-pc-windows-msvc
 
+      - name: Copy model folder for Windows x86
+        run: |
+          cp -r ./model ./target/i686-pc-windows-msvc/release/
+
       - name: Archive artifacts for Windows x86
         uses: actions/upload-artifact@v2
         with:
-          name: my-build-artifacts-windows-x86
-          path: ./target/release/ddddocr.exe
+          name: i686-pc-windows-msvc
+          path: |
+            ./target/i686-pc-windows-msvc/release/ddddocr.exe
+            ./target/i686-pc-windows-msvc/release/model
 
   build-windows-x64:
     runs-on: windows-latest
@@ -28,11 +34,17 @@ jobs:
       - name: Build project for Windows x64
         run: cargo build --release
 
+      - name: Copy model folder for Windows x64
+        run: |
+          cp -r ./model ./target/release/
+
       - name: Archive artifacts for Windows x64
         uses: actions/upload-artifact@v2
         with:
-          name: my-build-artifacts-windows-x64
-          path: ./target/release/ddddocr.exe
+          name: x86_64-pc-windows-msvc
+          path: |
+            ./target/release/ddddocr.exe
+            ./target/release/model
 
   build-windows-x86-inline:
     runs-on: windows-latest
@@ -46,8 +58,8 @@ jobs:
       - name: Archive artifacts for Windows x86 with inline-model
         uses: actions/upload-artifact@v2
         with:
-          name: my-build-artifacts-windows-x86-inline
-          path: ./target/release/ddddocr.exe
+          name: i686-pc-windows-msvc-inline
+          path: ./target/i686-pc-windows-msvc/release/ddddocr.exe
 
   build-windows-x64-inline:
     runs-on: windows-latest
@@ -61,7 +73,7 @@ jobs:
       - name: Archive artifacts for Windows x64 with inline-model
         uses: actions/upload-artifact@v2
         with:
-          name: my-build-artifacts-windows-x64-inline
+          name: x86_64-pc-windows-msvc-inline
           path: ./target/release/ddddocr.exe
 
   build-linux:
@@ -73,11 +85,17 @@ jobs:
       - name: Build project for Linux
         run: cargo build --release
 
+      - name: Copy model folder for Linux
+        run: |
+          cp -r ./model ./target/release/
+
       - name: Archive artifacts for Linux
         uses: actions/upload-artifact@v2
         with:
-          name: my-build-artifacts-linux
-          path: ./target/release/ddddocr
+          name: x86_64-unknown-linux-gnu
+          path: |
+            ./target/release/ddddocr
+            ./target/release/model
 
   build-linux-inline:
     runs-on: ubuntu-latest
@@ -91,7 +109,7 @@ jobs:
       - name: Archive artifacts for Linux with inline-model
         uses: actions/upload-artifact@v2
         with:
-          name: my-build-artifacts-linux-inline
+          name: x86_64-unknown-linux-gnu-inline
           path: ./target/release/ddddocr
 
   build-macos:
@@ -103,11 +121,17 @@ jobs:
       - name: Build project for macOS
         run: cargo build --release
 
+      - name: Copy model folder for macOS
+        run: |
+          cp -r ./model ./target/release/
+
       - name: Archive artifacts for macOS
         uses: actions/upload-artifact@v2
         with:
-          name: my-build-artifacts-macos
-          path: ./target/release/ddddocr
+          name: x86_64-apple-darwin
+          path: |
+            ./target/release/ddddocr
+            ./target/release/model
 
   build-macos-inline:
     runs-on: macos-latest
@@ -121,5 +145,5 @@ jobs:
       - name: Archive artifacts for macOS with inline-model
         uses: actions/upload-artifact@v2
         with:
-          name: my-build-artifacts-macos-inline
+          name: x86_64-apple-darwin-inline
           path: ./target/release/ddddocr
