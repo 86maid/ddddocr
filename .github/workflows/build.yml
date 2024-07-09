@@ -157,8 +157,11 @@ jobs:
       - name: Add AArch64 target for Linux
         run: rustup target add aarch64-unknown-linux-gnu
 
+      - name: Install AArch64 Linux toolchain
+        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+
       - name: Build project for AArch64 Linux
-        run: cargo build --release --target aarch64-unknown-linux-gnu
+        run: CC=aarch64-linux-gnu-gcc cargo build --release --target aarch64-unknown-linux-gnu
 
       - name: Copy model folder for AArch64 Linux
         run: |
@@ -181,8 +184,11 @@ jobs:
       - name: Add AArch64 target for Linux
         run: rustup target add aarch64-unknown-linux-gnu
 
-      - name: Build project for AArch64 Linux with inline-model feature
-        run: cargo build --release --target aarch64-unknown-linux-gnu --features "inline-model"
+      - name: Install AArch64 Linux toolchain
+        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Build project for AArch64 Linux
+        run: CC=aarch64-linux-gnu-gcc cargo build --release --target aarch64-unknown-linux-gnu --features "inline-model"
 
       - name: Archive artifacts for AArch64 Linux with inline-model
         uses: actions/upload-artifact@v2
