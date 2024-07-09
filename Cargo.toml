@@ -1,6 +1,6 @@
 [package]
 name = "ddddocr"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 
 [features]
@@ -10,7 +10,8 @@ download-binaries = ["ort/download-binaries"]
 default = ["download-binaries"]
 
 [dependencies]
-ort = { git = "https://github.com/pykeio/ort.git", rev = "0407adb", default-features = false, features = [
+# 这个版本删除了 Windows DML 以增加兼容性
+ort = { git = "https://github.com/86maid/ort.git", default-features = false, features = [
   "ndarray",
   "half",
   "copy-dylibs",
