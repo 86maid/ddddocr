@@ -16,7 +16,7 @@ jobs:
       - name: Copy model folder for Windows x86
         run: |
           mkdir ./target/i686-pc-windows-msvc/release/model
-          cp -r ./model ./target/i686-pc-windows-msvc/release/model
+          cp -r ./model ./target/i686-pc-windows-msvc/release/
 
       - name: Archive artifacts for Windows x86
         uses: actions/upload-artifact@v2
@@ -38,7 +38,7 @@ jobs:
       - name: Copy model folder for Windows x64
         run: |
           mkdir ./target/release/model
-          cp -r ./model ./target/release/model
+          cp -r ./model ./target/release/
 
       - name: Archive artifacts for Windows x64
         uses: actions/upload-artifact@v2
@@ -90,7 +90,7 @@ jobs:
       - name: Copy model folder for Linux
         run: |
           mkdir ./target/release/model
-          cp -r ./model ./target/release/model
+          cp -r ./model ./target/release/
 
       - name: Archive artifacts for Linux
         uses: actions/upload-artifact@v2
@@ -127,7 +127,7 @@ jobs:
       - name: Copy model folder for macOS
         run: |
           mkdir ./target/release/model
-          cp -r ./model ./target/release/model
+          cp -r ./model ./target/release/
 
       - name: Archive artifacts for macOS
         uses: actions/upload-artifact@v2
