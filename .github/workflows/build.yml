@@ -154,6 +154,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Add AArch64 target for Linux
+        run: rustup target add aarch64-unknown-linux-gnu
+
       - name: Build project for AArch64 Linux
         run: cargo build --release --target aarch64-unknown-linux-gnu
 
@@ -174,6 +177,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Add AArch64 target for Linux
+        run: rustup target add aarch64-unknown-linux-gnu
 
       - name: Build project for AArch64 Linux with inline-model feature
         run: cargo build --release --target aarch64-unknown-linux-gnu --features "inline-model"
