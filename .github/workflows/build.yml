@@ -159,8 +159,8 @@ jobs:
         with:
           toolchain: stable
 
-      # - name: Add AArch64 target for Linux
-      #   run: rustup target add aarch64-unknown-linux-gnu
+      - name: Add AArch64 target for Linux
+        run: rustup target add aarch64-unknown-linux-gnu
 
       - name: Build project for AArch64 Linux
         run: |
@@ -189,8 +189,8 @@ jobs:
         with:
           toolchain: stable
           
-      # - name: Add AArch64 target for Linux
-      #   run: rustup target add aarch64-unknown-linux-gnu
+      - name: Add AArch64 target for Linux
+        run: rustup target add aarch64-unknown-linux-gnu
 
       - name: Build project for AArch64 Linux with inline-model feature
         run: |
