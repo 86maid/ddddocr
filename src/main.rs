@@ -8,7 +8,10 @@ use actix_web::{
 use anyhow::ensure;
 use base64::{engine::general_purpose, Engine};
 use clap::Parser;
-use ddddocr::{Charset, Ddddocr, MapJson};
+use ddddocr::{
+    ddddocr_classification, ddddocr_classification_old, ddddocr_detection, Charset, Ddddocr,
+    MapJson,
+};
 use futures_util::StreamExt;
 use std::{collections::HashMap, fmt::Debug, str::FromStr};
 
@@ -518,104 +521,175 @@ async fn main() {
             println!("开启 jsonp 成功");
         }
 
-        if args.ocr || args.full {
-            let model = std::fs::read(args.ocr_path.clone() + ".onnx").expect("打开模型失败");
+        if cfg!(feature = "inline-model") {
+            if args.ocr || args.full {
+                OCR = Some(ddddocr_classification().expect("开启内容识别失败"));
 
-            let charset =
-                std::fs::read_to_string(args.ocr_path.clone() + ".json").expect("打开字符集失败");
-
-            diy = ddddocr::is_diy(&model);
-
-            OCR = Some(
-                Ddddocr::new(&model, Charset::from_str(&charset).expect("解析字符集失败"))
-                    .expect("开启内容识别失败"),
-            );
-
-            println!("开启内容识别成功");
-        }
-
-        if args.old || args.full && !diy {
-            let model = std::fs::read(args.ocr_path.clone() + "_old.onnx").expect("打开模型失败");
-
-            let charset = std::fs::read_to_string(args.ocr_path.clone() + "_old.json")
-                .expect("打开字符集失败");
-
-            OLD = Some(
-                Ddddocr::new(&model, Charset::from_str(&charset).expect("解析字符集失败"))
-                    .expect("开启旧版模型内容识别失败"),
-            );
-
-            println!("开启旧版模型内容识别成功");
-        }
-
-        if args.det || args.full {
-            let model = std::fs::read(&args.det_path).expect("打开模型失败");
-
-            DET = Some(Ddddocr::new_model(&model).expect("开启目标检测失败"));
-
-            println!("开启目标检测成功");
-        }
-
-        if args.ocr_probability.is_some() || args.full {
-            let model = std::fs::read(args.ocr_path.clone() + ".onnx").expect("打开模型失败");
-
-            let charset =
-                std::fs::read_to_string(args.ocr_path.clone() + ".json").expect("打开字符集失败");
-
-            if ddddocr::is_diy(&model) {
-                panic!("内容概率识别只能使用官方模型");
+                println!("开启内容识别成功");
             }
 
-            OCR_PROBABILITY = Some({
-                let mut result =
-                    Ddddocr::new(&model, Charset::from_str(&charset).expect("解析字符集失败"))
-                        .expect("开启内容概率识别失败");
+            if args.old || args.full && !diy {
+                OLD = Some(ddddocr_classification_old().expect("开启旧版模型内容识别失败"));
 
-                let text = args.ocr_probability.clone().unwrap_or(String::new());
-
-                match text.chars().next() {
-                    Some(v) => match v {
-                        '0'..='7' if text.len() == 1 => result.set_ranges(v as i32 - '0' as i32),
-                        _ => result.set_ranges(text.as_str()),
-                    },
-                    None => {}
-                }
-
-                result
-            });
-
-            println!("开启内容概率识别成功");
-        }
-
-        if args.old_probability.is_some() || args.full {
-            let model = std::fs::read(args.ocr_path.clone() + "_old.onnx").expect("打开模型失败");
-
-            let charset =
-                std::fs::read_to_string(args.ocr_path + "_old.json").expect("打开字符集失败");
-
-            if ddddocr::is_diy(&model) {
-                panic!("内容概率识别只能使用官方模型");
+                println!("开启旧版模型内容识别成功");
             }
 
-            OLD_PROBABILITY = Some({
-                let mut result =
+            if args.det || args.full {
+                DET = Some(ddddocr_detection().expect("开启目标检测失败"));
+
+                println!("开启目标检测成功");
+            }
+
+            if args.ocr_probability.is_some() || args.full {
+                OCR_PROBABILITY = Some({
+                    let mut result = ddddocr_classification().expect("开启内容概率识别失败");
+
+                    let text = args.ocr_probability.clone().unwrap_or(String::new());
+
+                    match text.chars().next() {
+                        Some(v) => match v {
+                            '0'..='7' if text.len() == 1 => {
+                                result.set_ranges(v as i32 - '0' as i32)
+                            }
+                            _ => result.set_ranges(text.as_str()),
+                        },
+                        None => {}
+                    }
+
+                    result
+                });
+
+                println!("开启内容概率识别成功");
+            }
+
+            if args.old_probability.is_some() || args.full {
+                OLD_PROBABILITY = Some({
+                    let mut result =
+                        ddddocr_classification_old().expect("开启旧版模型内容概率识别失败");
+
+                    let text = args.old_probability.clone().unwrap_or(String::new());
+
+                    match text.chars().next() {
+                        Some(v) => match v {
+                            '0'..='7' if text.len() == 1 => {
+                                result.set_ranges(v as i32 - '0' as i32)
+                            }
+                            _ => result.set_ranges(text.as_str()),
+                        },
+                        None => {}
+                    }
+
+                    result
+                });
+
+                println!("开启旧版模型内容概率识别成功");
+            }
+        } else {
+            if args.ocr || args.full {
+                let model = std::fs::read(args.ocr_path.clone() + ".onnx").expect("打开模型失败");
+
+                let charset = std::fs::read_to_string(args.ocr_path.clone() + ".json")
+                    .expect("打开字符集失败");
+
+                diy = ddddocr::is_diy(&model);
+
+                OCR = Some(
                     Ddddocr::new(&model, Charset::from_str(&charset).expect("解析字符集失败"))
-                        .expect("开启旧版模型内容概率识别失败");
+                        .expect("开启内容识别失败"),
+                );
 
-                let text = args.old_probability.clone().unwrap_or(String::new());
+                println!("开启内容识别成功");
+            }
 
-                match text.chars().next() {
-                    Some(v) => match v {
-                        '0'..='7' if text.len() == 1 => result.set_ranges(v as i32 - '0' as i32),
-                        _ => result.set_ranges(text.as_str()),
-                    },
-                    None => {}
+            if args.old || args.full && !diy {
+                let model =
+                    std::fs::read(args.ocr_path.clone() + "_old.onnx").expect("打开模型失败");
+
+                let charset = std::fs::read_to_string(args.ocr_path.clone() + "_old.json")
+                    .expect("打开字符集失败");
+
+                OLD = Some(
+                    Ddddocr::new(&model, Charset::from_str(&charset).expect("解析字符集失败"))
+                        .expect("开启旧版模型内容识别失败"),
+                );
+
+                println!("开启旧版模型内容识别成功");
+            }
+
+            if args.det || args.full {
+                let model = std::fs::read(&args.det_path).expect("打开模型失败");
+
+                DET = Some(Ddddocr::new_model(&model).expect("开启目标检测失败"));
+
+                println!("开启目标检测成功");
+            }
+
+            if args.ocr_probability.is_some() || args.full {
+                let model = std::fs::read(args.ocr_path.clone() + ".onnx").expect("打开模型失败");
+
+                let charset = std::fs::read_to_string(args.ocr_path.clone() + ".json")
+                    .expect("打开字符集失败");
+
+                if ddddocr::is_diy(&model) {
+                    panic!("内容概率识别只能使用官方模型");
                 }
 
-                result
-            });
+                OCR_PROBABILITY = Some({
+                    let mut result =
+                        Ddddocr::new(&model, Charset::from_str(&charset).expect("解析字符集失败"))
+                            .expect("开启内容概率识别失败");
 
-            println!("开启旧版模型内容概率识别成功");
+                    let text = args.ocr_probability.clone().unwrap_or(String::new());
+
+                    match text.chars().next() {
+                        Some(v) => match v {
+                            '0'..='7' if text.len() == 1 => {
+                                result.set_ranges(v as i32 - '0' as i32)
+                            }
+                            _ => result.set_ranges(text.as_str()),
+                        },
+                        None => {}
+                    }
+
+                    result
+                });
+
+                println!("开启内容概率识别成功");
+            }
+
+            if args.old_probability.is_some() || args.full {
+                let model =
+                    std::fs::read(args.ocr_path.clone() + "_old.onnx").expect("打开模型失败");
+
+                let charset =
+                    std::fs::read_to_string(args.ocr_path + "_old.json").expect("打开字符集失败");
+
+                if ddddocr::is_diy(&model) {
+                    panic!("内容概率识别只能使用官方模型");
+                }
+
+                OLD_PROBABILITY = Some({
+                    let mut result =
+                        Ddddocr::new(&model, Charset::from_str(&charset).expect("解析字符集失败"))
+                            .expect("开启旧版模型内容概率识别失败");
+
+                    let text = args.old_probability.clone().unwrap_or(String::new());
+
+                    match text.chars().next() {
+                        Some(v) => match v {
+                            '0'..='7' if text.len() == 1 => {
+                                result.set_ranges(v as i32 - '0' as i32)
+                            }
+                            _ => result.set_ranges(text.as_str()),
+                        },
+                        None => {}
+                    }
+
+                    result
+                });
+
+                println!("开启旧版模型内容概率识别成功");
+            }
         }
 
         if args.slide_match || args.full {

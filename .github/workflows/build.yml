@@ -10,13 +10,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build project for Windows
+      - name: Build project for Windows x86
         run: cargo build --release --target i686-pc-windows-msvc
 
-      - name: Archive artifacts for Windows
+      - name: Archive artifacts for Windows x86
         uses: actions/upload-artifact@v2
         with:
-          name: my-build-artifacts-windows
+          name: my-build-artifacts-windows-x86
           path: ./target/release/ddddocr.exe
 
   build-windows-x64:
@@ -25,13 +25,43 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build project for Windows
+      - name: Build project for Windows x64
         run: cargo build --release
 
-      - name: Archive artifacts for Windows
+      - name: Archive artifacts for Windows x64
         uses: actions/upload-artifact@v2
         with:
-          name: my-build-artifacts-windows
+          name: my-build-artifacts-windows-x64
+          path: ./target/release/ddddocr.exe
+
+  build-windows-x86-inline:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build project for Windows x86 with inline-model feature
+        run: cargo build --release --target i686-pc-windows-msvc --features "inline-model"
+
+      - name: Archive artifacts for Windows x86 with inline-model
+        uses: actions/upload-artifact@v2
+        with:
+          name: my-build-artifacts-windows-x86-inline
+          path: ./target/release/ddddocr.exe
+
+  build-windows-x64-inline:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build project for Windows x64 with inline-model feature
+        run: cargo build --release --features "inline-model"
+
+      - name: Archive artifacts for Windows x64 with inline-model
+        uses: actions/upload-artifact@v2
+        with:
+          name: my-build-artifacts-windows-x64-inline
           path: ./target/release/ddddocr.exe
 
   build-linux:
@@ -49,6 +79,21 @@ jobs:
           name: my-build-artifacts-linux
           path: ./target/release/ddddocr
 
+  build-linux-inline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build project for Linux with inline-model feature
+        run: cargo build --release --features "inline-model"
+
+      - name: Archive artifacts for Linux with inline-model
+        uses: actions/upload-artifact@v2
+        with:
+          name: my-build-artifacts-linux-inline
+          path: ./target/release/ddddocr
+
   build-macos:
     runs-on: macos-latest
 
@@ -62,4 +107,19 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: my-build-artifacts-macos
+          path: ./target/release/ddddocr
+
+  build-macos-inline:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build project for macOS with inline-model feature
+        run: cargo build --release --features "inline-model"
+
+      - name: Archive artifacts for macOS with inline-model
+        uses: actions/upload-artifact@v2
+        with:
+          name: my-build-artifacts-macos-inline
           path: ./target/release/ddddocr

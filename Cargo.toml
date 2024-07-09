@@ -4,6 +4,8 @@ version = "0.4.1"
 edition = "2021"
 
 [features]
+# 编译 main 的时候
+inline-model = []
 load-dynamic = ["ort/load-dynamic"]
 cuda = ["ort/cuda"]
 download-binaries = ["ort/download-binaries"]
