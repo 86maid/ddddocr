@@ -427,6 +427,12 @@ impl MapJson for CharacterProbability {
     }
 }
 
+impl MapJson for Vec<(BBox, String)> {
+    fn json(&self) -> String {
+        unsafe { serde_json::to_string(self).unwrap_unchecked() }
+    }
+}
+
 lazy_static::lazy_static! {
     static ref _STATIC: (Vec<u32>, Vec<u32>) = {
         let mut grids = Vec::new();
