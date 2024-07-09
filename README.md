@@ -361,13 +361,11 @@ print(f"api_url={api_url}, resp.text={resp.text}")
 
 默认开启 `download-binaries` 特性，自动下载链接库。
 
-取消 `download-binaries` 特性 `ddddocr = { git = "https://github.com/86maid/ddddocr.git", branch = "master", [default-features = false ] }` 
-
 自动下载的链接库存放在 `C:\Users\<用户名>\AppData\ort.pyke.io`。
 
 开启动态链接特性 `ddddocr = { git = "https://github.com/86maid/ddddocr.git", branch = "master", features = ["load-dynamic"] }`
 
-开启 `load-dynamic` 特性后，可以使用 `Ddddocr::set_onnxruntime_path` 指定 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.18.1) 链接库的路径。
+开启 `load-dynamic` 特性后，可以使用 `Ddddocr::set_onnxruntime_path` 指定 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.18.1) 动态链接库的路径。
 
 开启 `load-dynamic` 特性后，构建时将不会自动下载 [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.18.1) 链接库。
 
