@@ -154,15 +154,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Add AArch64 target for Linux
-        run: rustup target add aarch64-unknown-linux-gnu
+      - name: Install stable Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
 
-      - name: Install AArch64 Linux toolchain
-        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+      # - name: Add AArch64 target for Linux
+      #   run: rustup target add aarch64-unknown-linux-gnu
 
       - name: Build project for AArch64 Linux
         run: |
-          export TARGET_CC=aarch64-linux-gnu-gcc
           cargo build --release --target aarch64-unknown-linux-gnu
 
       - name: Copy model folder for AArch64 Linux
@@ -183,15 +184,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Add AArch64 target for Linux
-        run: rustup target add aarch64-unknown-linux-gnu
-
-      - name: Install AArch64 Linux toolchain
-        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+      - name: Install stable Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          
+      # - name: Add AArch64 target for Linux
+      #   run: rustup target add aarch64-unknown-linux-gnu
 
       - name: Build project for AArch64 Linux with inline-model feature
         run: |
-          export RUSTFLAGS="-C target-feature=-crt-static"
           cargo build --release --target aarch64-unknown-linux-gnu --features "inline-model"
 
       - name: Archive artifacts for AArch64 Linux with inline-model
