@@ -1058,7 +1058,7 @@ impl<'a> Ddddocr<'a> {
 
         let mut tensor = ndarray::Array::from_shape_vec(
             (1, channel, height, width),
-            vec![0f32; height * width],
+            vec![0f32; channel * height * width],
         )?;
 
         // 根据配置标准化图像张量
@@ -1085,9 +1085,8 @@ impl<'a> Ddddocr<'a> {
         }
 
         if word {
-            // todo: 这里他妈的到底是 [1] 还是 [0]
             Ok((&self.session.run(ort::inputs![tensor]?)?[1])
-                .try_extract_tensor::<u32>()?
+                .try_extract_tensor::<i64>()?
                 .iter()
                 .map(|&v| charset[v as usize].to_string())
                 .collect::<String>())
@@ -1627,4 +1626,19 @@ mod tests {
     fn error_cuda() {
         let mut ddddocr = ddddocr_classification_cuda(114514).unwrap();
     }
+
+    // #[test]
+    // fn diy_model() {
+    //     let mut ddddocr = Ddddocr::with_model_charset(
+    //         r#"C:\Users\XChuang233\Downloads\ddddocr_models-main\cpdaily\model\cpdaily.onnx"#,
+    //         r#"C:\Users\XChuang233\Downloads\ddddocr_models-main\cpdaily\model\charsets.json"#,
+    //     )
+    //     .unwrap();
+
+    //     let result = ddddocr.classification(
+    //         include_bytes!(r#"C:\Users\XChuang233\Downloads\ddddocr_models-main\cpdaily\images\飞机_8cb1df1a25a84a8ba9f767d6875f414f.jpg.jpg"#),
+    //         false);
+
+    //     println!("{:?}", result);
+    // }
 }
