@@ -1,0 +1,11 @@
+[package]
+name = "ddddocr-dll"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+ddddocr = { git = "https://github.com/86maid/ddddocr.git" }
+image = "0.24.0"
