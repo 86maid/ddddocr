@@ -675,6 +675,7 @@ version = "0.1.0"
 dependencies = [
  "ddddocr",
  "image",
+ "serde_json",
 ]
 
 [[package]]

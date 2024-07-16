@@ -1,4 +1,25 @@
 #[no_mangle]
+pub unsafe extern "stdcall" fn with_model_charset(
+    model: *const u8,
+    model_len: usize,
+    charset: *const u8,
+    charset_len: usize,
+) -> *mut ddddocr::Ddddocr<'static> {
+    let model = std::slice::from_raw_parts(model, model_len);
+    let charset = std::slice::from_raw_parts(charset, charset_len);
+
+    let charset = match serde_json::from_slice::<ddddocr::Charset>(&charset) {
+        Ok(v) => v,
+        Err(_) => return std::ptr::null_mut(),
+    };
+
+    match ddddocr::Ddddocr::new(model, charset) {
+        Ok(this) => Box::into_raw(Box::new(this)),
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
+#[no_mangle]
 pub extern "stdcall" fn init_classification() -> *mut ddddocr::Ddddocr<'static> {
     match ddddocr::ddddocr_classification() {
         Ok(this) => Box::into_raw(Box::new(this)),
@@ -349,9 +370,9 @@ mod tests {
 
             let str = std::ffi::CString::new("1234567890").unwrap();
 
-            // set_ranges(this, str.as_ptr());
+            set_ranges(this, str.as_ptr());
 
-            (*this).set_ranges(7);
+            // (*this).set_ranges(7);
 
             let start = std::time::Instant::now();
 
@@ -402,18 +423,18 @@ mod tests {
                 std::ffi::CString::from_raw(t).to_str().unwrap()
             );
 
-            /*   println!("数组结果\n{:?}", result);
-             */
+            println!("数组结果\n{:?}", result);
+
             println!(
                 "字符 {:e} {:e}",
                 get_character_probability(cp, 0, 0),
                 get_character_probability(cp, 0, 1)
             );
 
-            /*           println!(
+            println!(
                 "json 文本\n{}",
                 std::ffi::CString::from_raw(jt).to_str().unwrap()
-            ); */
+            );
         }
     }
 }
