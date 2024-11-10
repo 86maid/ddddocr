@@ -7,6 +7,9 @@ This project offers a Rust implementation of `ddddocr` and `ocr_api_server`. It 
 [![Stargazers][stars-shield]](https://github.com/86maid/ddddocr)
 [![Apache](https://img.shields.io/badge/license-Apache-blue.svg)](https://github.com/86maid/ddddocr/blob/master/LICENSE)
 
+[forks-shield]: https://img.shields.io/github/forks/86maid/ddddocr?style=flat-square
+[stars-shield]: https://img.shields.io/github/stars/86maid/ddddocr?style=flat-square
+
 ![Project Logo](https://cdn.wenanzhe.com/img/logo.png!/crop/700x500a400a500)
 
 This is an easy-to-use, general-purpose CAPTCHA recognition library written in Rust. We encourage users to [report bugs](https://github.com/sml2h3/ddddocr/issues) and [suggest new features](https://github.com/sml2h3/ddddocr/issues).
