@@ -60,3 +60,6 @@ tokio = { version = "1.46.1", features = ["full"] }
 lru = "0.16.0"
 bytes = "1.10.1"
 async-trait = "0.1.88"
+
+# ansi
+enable-ansi-support = "0.2.1"

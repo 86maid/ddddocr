@@ -2,6 +2,7 @@ use base64::prelude::*;
 use clap::ArgGroup;
 use clap::Parser;
 use ddddocr::*;
+use enable_ansi_support::enable_ansi_support;
 use lru::LruCache;
 use salvo::catcher::Catcher;
 use salvo::http::request;
@@ -214,7 +215,9 @@ async fn route_ocr(req: JsonBody<OCRRequest>, res: &mut Response) -> anyhow::Res
             CACHE
                 .lock()
                 .await
-                .get_or_insert(v.to_string(), || OCR.get().unwrap().calc_ranges(ocr_charset_range))
+                .get_or_insert(v.to_string(), || {
+                    OCR.get().unwrap().calc_ranges(ocr_charset_range)
+                })
                 .clone(),
         ))
     } else {
@@ -492,7 +495,9 @@ async fn main() {
 
     ARGS.set(args.clone()).unwrap();
 
-    tracing_subscriber::fmt().init();
+    tracing_subscriber::fmt()
+        .with_ansi(enable_ansi_support().is_ok())
+        .init();
 
     let ocr_charset_range = args.ocr_charset_range.map(|v| match v.as_str() {
         "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" => {
