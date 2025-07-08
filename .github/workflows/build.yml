@@ -280,28 +280,31 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: '**'
-          merge-multiple: false
-          path: artifacts/
+      - name: Download all artifacts (as zip)
+        run: |
+          mkdir -p artifacts
+          echo "Fetching artifact list..."
+          gh api \
+            repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts \
+            --jq '.artifacts[].archive_download_url' |
+          while read url; do
+            name=$(basename "$url" | cut -d? -f1)
+            echo "Downloading $name ..."
+            gh api "$url" > "artifacts/$name.zip"
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: List artifacts folder tree
         run: |
           echo "artifacts/ 目录结构："
-          if [ -d artifacts ]; then
-            # Linux/macOS runner
-            tree artifacts || ls -R artifacts
-          else
-            echo "artifacts 目录不存在或为空"
-          fi
+          tree artifacts || ls -R artifacts
         shell: bash
 
       - name: Attach artifacts to Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.event.inputs.version }}
-          files: artifacts/
+          files: artifacts/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
