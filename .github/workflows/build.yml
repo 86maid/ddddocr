@@ -291,13 +291,6 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.event.inputs.version }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload each artifact via gh
-        run: |
-          for file in artifacts/*; do
-            gh release upload ${{ github.event.inputs.version }} "$file"
-          done
+          files: "artifacts/*.zip"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
