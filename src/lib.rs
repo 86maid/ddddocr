@@ -840,7 +840,7 @@ impl From<Vec<((u8, u8, u8), (u8, u8, u8))>> for ColorFilter {
 
 impl ColorFilter {
     /// 过滤颜色，例如 ColorFilter::from("green").filter(image) 表示只保留绿色。
-    fn filter<I>(&self, image: I) -> anyhow::Result<image::DynamicImage>
+    pub fn filter<I>(&self, image: I) -> anyhow::Result<image::DynamicImage>
     where
         I: AsRef<[u8]>,
     {
