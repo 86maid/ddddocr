@@ -27,10 +27,11 @@ jobs:
         run: cargo build --release --target i686-pc-windows-msvc --no-default-features --features "download-binaries"
 
       - name: Copy model folder for Windows x86
-        run: cp -r ./model ./target/i686-pc-windows-msvc/release/
+        run: |
+          cp -r ./model ./target/i686-pc-windows-msvc/release/
 
       - name: Archive artifacts for Windows x86
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: i686-pc-windows-msvc
           path: |
@@ -46,10 +47,11 @@ jobs:
         run: cargo build --release --no-default-features --features "download-binaries"
 
       - name: Copy model folder for Windows x64
-        run: cp -r ./model ./target/release/
+        run: |
+          cp -r ./model ./target/release/
 
       - name: Archive artifacts for Windows x64
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: x86_64-pc-windows-msvc
           path: |
@@ -65,7 +67,7 @@ jobs:
         run: cargo build --release --target i686-pc-windows-msvc
 
       - name: Archive artifacts for Windows x86 (inline-model)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: i686-pc-windows-msvc-inline
           path: ./target/i686-pc-windows-msvc/release/ddddocr.exe
@@ -79,7 +81,7 @@ jobs:
         run: cargo build --release
 
       - name: Archive artifacts for Windows x64 (inline-model)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: x86_64-pc-windows-msvc-inline
           path: ./target/release/ddddocr.exe
@@ -93,10 +95,11 @@ jobs:
         run: cargo build --release --no-default-features --features "download-binaries"
 
       - name: Copy model folder for Linux
-        run: cp -r ./model ./target/release/
+        run: |
+          cp -r ./model ./target/release/
 
       - name: Archive artifacts for Linux
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: x86_64-unknown-linux-gnu
           path: |
@@ -112,7 +115,7 @@ jobs:
         run: cargo build --release
 
       - name: Archive artifacts for Linux (inline-model)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: x86_64-unknown-linux-gnu-inline
           path: ./target/release/ddddocr
@@ -126,10 +129,11 @@ jobs:
         run: cargo build --release --no-default-features --features "download-binaries"
 
       - name: Copy model folder for macOS
-        run: cp -r ./model ./target/release/
+        run: |
+          cp -r ./model ./target/release/
 
       - name: Archive artifacts for macOS
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: x86_64-apple-darwin
           path: |
@@ -145,7 +149,7 @@ jobs:
         run: cargo build --release
 
       - name: Archive artifacts for macOS (inline-model)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: x86_64-apple-darwin-inline
           path: ./target/release/ddddocr
@@ -173,10 +177,11 @@ jobs:
           cargo build --release --target aarch64-unknown-linux-gnu --no-default-features --features "download-binaries"
 
       - name: Copy model folder for AArch64 Linux
-        run: cp -r ./model ./target/aarch64-unknown-linux-gnu/release/
+        run: |
+          cp -r ./model ./target/aarch64-unknown-linux-gnu/release/
 
       - name: Archive artifacts for AArch64 Linux
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: aarch64-unknown-linux-gnu
           path: |
@@ -192,7 +197,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-
+          
       - name: Add AArch64 target for Linux
         run: rustup target add aarch64-unknown-linux-gnu
 
@@ -206,7 +211,7 @@ jobs:
           cargo build --release --target aarch64-unknown-linux-gnu
 
       - name: Archive artifacts for AArch64 Linux (inline-model)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: aarch64-unknown-linux-gnu-inline
           path: ./target/aarch64-unknown-linux-gnu/release/ddddocr
@@ -220,10 +225,11 @@ jobs:
         run: cargo build --release --target aarch64-apple-darwin --no-default-features --features "download-binaries"
 
       - name: Copy model folder for AArch64 macOS
-        run: cp -r ./model ./target/aarch64-apple-darwin/release/
+        run: |
+          cp -r ./model ./target/aarch64-apple-darwin/release/
 
       - name: Archive artifacts for AArch64 macOS
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: aarch64-apple-darwin
           path: |
@@ -239,9 +245,63 @@ jobs:
         run: cargo build --release --target aarch64-apple-darwin
 
       - name: Archive artifacts for AArch64 macOS (inline-model)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: aarch64-apple-darwin-inline
           path: ./target/aarch64-apple-darwin/release/ddddocr
-
+  
   release:
+    if: ${{ github.event.inputs.publish }}
+    needs:
+      - build-windows-x86
+      - build-windows-x64
+      - build-windows-x86-inline
+      - build-windows-x64-inline
+      - build-linux
+      - build-linux-inline
+      - build-macos
+      - build-macos-inline
+      - build-aarch64-linux
+      - build-aarch64-linux-inline
+      - build-aarch64-macos
+      - build-aarch64-macos-inline
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Create Git tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag ${{ github.event.inputs.version }}
+          git push origin ${{ github.event.inputs.version }}
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ github.event.inputs.version }}
+          release_name: ${{ github.event.inputs.version }}
+          body: ${{ github.event.inputs.description }}
+          draft: false
+          prerelease: false
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: '**/*'
+          path: artifacts/
+
+      - name: Attach artifacts to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.event.inputs.version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload each artifact
+        run: |
+          for file in artifacts/**/*; do
+            gh release upload ${{ github.event.inputs.version }} "$file"
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
