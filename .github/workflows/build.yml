@@ -291,6 +291,6 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.event.inputs.version }}
-          files: "${{ github.workspace }}/artifact/"
+          files: "${{ github.workspace }}/artifacts/"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
