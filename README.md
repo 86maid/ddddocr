@@ -1,4 +1,6 @@
 # 简介
+[中文](./README.md) | [English](./README_EN.md)
+
 ddddocr rust 版本。  
 
 ocr_api_server rust 版本。
