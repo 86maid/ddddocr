@@ -37,7 +37,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: i686-pc-windows-msvc
-          path: ./target/i686-pc-windows-msvc.zip
+          path: ./i686-pc-windows-msvc.zip
 
   build-windows-x64:
     runs-on: windows-latest
@@ -55,7 +55,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: x86_64-pc-windows-msvc
-          path: ./target/x86_64-pc-windows-msvc.zip
+          path: ./x86_64-pc-windows-msvc.zip
 
   build-windows-x86-inline:
     runs-on: windows-latest
@@ -71,7 +71,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: i686-pc-windows-msvc-inline
-          path: ./target/i686-pc-windows-msvc-inline.zip
+          path: ./i686-pc-windows-msvc-inline.zip
 
   build-windows-x64-inline:
     runs-on: windows-latest
@@ -87,7 +87,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: x86_64-pc-windows-msvc-inline
-          path: ./target/x86_64-pc-windows-msvc-inline.zip
+          path: ./x86_64-pc-windows-msvc-inline.zip
 
   build-linux:
     runs-on: ubuntu-latest
