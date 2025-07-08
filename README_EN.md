@@ -259,25 +259,27 @@ Usage: ddddocr.exe [OPTIONS]
 
 Options:
       --address <ADDRESS>
-          Listening address [default: 0.0.0.0:8000]
+          Listening address. [default: 0.0.0.0:8000]
       --mcp
-          Enable MCP protocol support
+          Enable MCP protocol support.
       --ocr
-          Enable primary OCR (mutually exclusive with --old)
+          Enable content recognition (mutually exclusive with --old).
       --old
-          Enable legacy OCR model (mutually exclusive with --ocr)
+          Enable legacy model content recognition (mutually exclusive with --ocr).
       --det
-          Enable object detection
+          Enable object detection.
       --slide
-          Enable slider matching
+          Enable slider captcha and gap recognition.
       --ocr-charset-range <OCR_CHARSET_RANGE>
-          Default charset for probability OCR (0-7 or custom string)
+          Global default character set for probabilistic recognition. If the API does not provide a character set, this parameter will be used. Values 0–7 select a built‑in character set; any other value specifies a custom character set (e.g. "0123456789+-x/="). If not set, the full character set is used without restriction.
       --ocr-path <OCR_PATH>
-          Path to OCR model and charset (default: model/common.onnx)
+          Path to the content recognition model and character set. If you have enabled the “inline-model” feature (enabled by default), you can ignore this option unless you want to use a custom model. The model file (common.onnx) and character set file (common.json) must have the same base name. [default: model/common.onnx]
       --det-path <DET_PATH>
-          Path to detection model (default: model/common_det.onnx)
+          Path to the object detection model. If you have enabled the “inline-model” feature (enabled by default), you can ignore this option unless you want to use a custom model. [default: model/common_det.onnx]
+      --acme <ACME>
+          Your domain name for automatic SSL certificate issuance (enables HTTPS support).
   -h, --help
-          Show help
+          Print this help message
 ```
 
 ## Run Examples

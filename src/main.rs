@@ -79,7 +79,7 @@ struct Args {
     #[arg(long, default_value_t = { "model/common_det.onnx".to_string() })]
     det_path: String,
 
-    /// 输入你的域名，自动获取 SSL 证书。
+    /// 输入你的域名，自动获取 SSL 证书，
     /// 即 https 的支持。
     #[arg(long)]
     acme: Option<String>,
