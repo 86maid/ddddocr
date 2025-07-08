@@ -20,7 +20,6 @@ on:
 jobs:
   build-windows-x86:
     runs-on: windows-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -32,7 +31,7 @@ jobs:
           cp -r ./model ./target/i686-pc-windows-msvc/release/
 
       - name: Archive artifacts for Windows x86
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: i686-pc-windows-msvc
           path: |
@@ -41,7 +40,6 @@ jobs:
 
   build-windows-x64:
     runs-on: windows-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -53,7 +51,7 @@ jobs:
           cp -r ./model ./target/release/
 
       - name: Archive artifacts for Windows x64
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: x86_64-pc-windows-msvc
           path: |
@@ -62,7 +60,6 @@ jobs:
 
   build-windows-x86-inline:
     runs-on: windows-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -70,14 +67,13 @@ jobs:
         run: cargo build --release --target i686-pc-windows-msvc
 
       - name: Archive artifacts for Windows x86 (inline-model)
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: i686-pc-windows-msvc-inline
           path: ./target/i686-pc-windows-msvc/release/ddddocr.exe
 
   build-windows-x64-inline:
     runs-on: windows-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -85,14 +81,13 @@ jobs:
         run: cargo build --release
 
       - name: Archive artifacts for Windows x64 (inline-model)
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: x86_64-pc-windows-msvc-inline
           path: ./target/release/ddddocr.exe
 
   build-linux:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -104,7 +99,7 @@ jobs:
           cp -r ./model ./target/release/
 
       - name: Archive artifacts for Linux
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: x86_64-unknown-linux-gnu
           path: |
@@ -113,7 +108,6 @@ jobs:
 
   build-linux-inline:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -121,14 +115,13 @@ jobs:
         run: cargo build --release
 
       - name: Archive artifacts for Linux (inline-model)
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: x86_64-unknown-linux-gnu-inline
           path: ./target/release/ddddocr
 
   build-macos:
     runs-on: macos-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -140,7 +133,7 @@ jobs:
           cp -r ./model ./target/release/
 
       - name: Archive artifacts for macOS
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: x86_64-apple-darwin
           path: |
@@ -149,7 +142,6 @@ jobs:
 
   build-macos-inline:
     runs-on: macos-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -157,14 +149,13 @@ jobs:
         run: cargo build --release
 
       - name: Archive artifacts for macOS (inline-model)
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: x86_64-apple-darwin-inline
           path: ./target/release/ddddocr
 
   build-aarch64-linux:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -190,7 +181,7 @@ jobs:
           cp -r ./model ./target/aarch64-unknown-linux-gnu/release/
 
       - name: Archive artifacts for AArch64 Linux
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: aarch64-unknown-linux-gnu
           path: |
@@ -199,7 +190,6 @@ jobs:
 
   build-aarch64-linux-inline:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -221,14 +211,13 @@ jobs:
           cargo build --release --target aarch64-unknown-linux-gnu
 
       - name: Archive artifacts for AArch64 Linux (inline-model)
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: aarch64-unknown-linux-gnu-inline
           path: ./target/aarch64-unknown-linux-gnu/release/ddddocr
 
   build-aarch64-macos:
     runs-on: macos-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -240,7 +229,7 @@ jobs:
           cp -r ./model ./target/aarch64-apple-darwin/release/
 
       - name: Archive artifacts for AArch64 macOS
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: aarch64-apple-darwin
           path: |
@@ -249,7 +238,6 @@ jobs:
 
   build-aarch64-macos-inline:
     runs-on: macos-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -257,7 +245,7 @@ jobs:
         run: cargo build --release --target aarch64-apple-darwin
 
       - name: Archive artifacts for AArch64 macOS (inline-model)
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: aarch64-apple-darwin-inline
           path: ./target/aarch64-apple-darwin/release/ddddocr
@@ -299,7 +287,7 @@ jobs:
           prerelease: false
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: '**/*'
           path: artifacts/
