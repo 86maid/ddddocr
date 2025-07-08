@@ -2,6 +2,20 @@ name: build
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. v1.2.3)'
+        required: true
+        default: ''
+      description:
+        description: 'Release description'
+        required: false
+        default: ''
+      publish:
+        description: '是否创建 GitHub Release?'
+        required: false
+        default: 'false'
+        type: boolean
 
 jobs:
   build-windows-x86:
@@ -10,8 +24,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build project for Windows x86
-        run: cargo build --release --target i686-pc-windows-msvc
+      - name: Build project for Windows x86 (non-inline)
+        run: cargo build --release --target i686-pc-windows-msvc --no-default-features --features "download-binaries"
 
       - name: Copy model folder for Windows x86
         run: |
@@ -31,8 +45,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build project for Windows x64
-        run: cargo build --release
+      - name: Build project for Windows x64 (non-inline)
+        run: cargo build --release --no-default-features --features "download-binaries"
 
       - name: Copy model folder for Windows x64
         run: |
@@ -52,10 +66,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build project for Windows x86 with inline-model feature
-        run: cargo build --release --target i686-pc-windows-msvc --features "inline-model"
+      - name: Build project for Windows x86 (inline-model)
+        run: cargo build --release --target i686-pc-windows-msvc
 
-      - name: Archive artifacts for Windows x86 with inline-model
+      - name: Archive artifacts for Windows x86 (inline-model)
         uses: actions/upload-artifact@v2
         with:
           name: i686-pc-windows-msvc-inline
@@ -67,10 +81,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build project for Windows x64 with inline-model feature
-        run: cargo build --release --features "inline-model"
+      - name: Build project for Windows x64 (inline-model)
+        run: cargo build --release
 
-      - name: Archive artifacts for Windows x64 with inline-model
+      - name: Archive artifacts for Windows x64 (inline-model)
         uses: actions/upload-artifact@v2
         with:
           name: x86_64-pc-windows-msvc-inline
@@ -82,8 +96,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build project for Linux
-        run: cargo build --release
+      - name: Build project for Linux (non-inline)
+        run: cargo build --release --no-default-features --features "download-binaries"
 
       - name: Copy model folder for Linux
         run: |
@@ -103,10 +117,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build project for Linux with inline-model feature
-        run: cargo build --release --features "inline-model"
+      - name: Build project for Linux (inline-model)
+        run: cargo build --release
 
-      - name: Archive artifacts for Linux with inline-model
+      - name: Archive artifacts for Linux (inline-model)
         uses: actions/upload-artifact@v2
         with:
           name: x86_64-unknown-linux-gnu-inline
@@ -118,8 +132,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build project for macOS
-        run: cargo build --release
+      - name: Build project for macOS (non-inline)
+        run: cargo build --release --no-default-features --features "download-binaries"
 
       - name: Copy model folder for macOS
         run: |
@@ -139,10 +153,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build project for macOS with inline-model feature
-        run: cargo build --release --features "inline-model"
+      - name: Build project for macOS (inline-model)
+        run: cargo build --release
 
-      - name: Archive artifacts for macOS with inline-model
+      - name: Archive artifacts for macOS (inline-model)
         uses: actions/upload-artifact@v2
         with:
           name: x86_64-apple-darwin-inline
@@ -165,11 +179,11 @@ jobs:
       - name: Install AArch64 Linux toolchain and dependencies
         run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu build-essential libc6-dev-arm64-cross
 
-      - name: Build project for AArch64 Linux
+      - name: Build project for AArch64 Linux (non-inline)
         run: |
           export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
           export RUSTFLAGS="-L /usr/aarch64-linux-gnu/lib"
-          cargo build --release --target aarch64-unknown-linux-gnu
+          cargo build --release --target aarch64-unknown-linux-gnu --no-default-features --features "download-binaries"
 
       - name: Copy model folder for AArch64 Linux
         run: |
@@ -200,13 +214,13 @@ jobs:
       - name: Install AArch64 Linux toolchain and dependencies
         run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu build-essential libc6-dev-arm64-cross
 
-      - name: Build project for AArch64 Linux
+      - name: Build project for AArch64 Linux (inline-model)
         run: |
           export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
           export RUSTFLAGS="-L /usr/aarch64-linux-gnu/lib"
-          cargo build --release --target aarch64-unknown-linux-gnu --features "inline-model"
+          cargo build --release --target aarch64-unknown-linux-gnu
 
-      - name: Archive artifacts for AArch64 Linux with inline-model
+      - name: Archive artifacts for AArch64 Linux (inline-model)
         uses: actions/upload-artifact@v2
         with:
           name: aarch64-unknown-linux-gnu-inline
@@ -218,8 +232,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build project for AArch64 macOS
-        run: cargo build --release --target aarch64-apple-darwin
+      - name: Build project for AArch64 macOS (non-inline)
+        run: cargo build --release --target aarch64-apple-darwin --no-default-features --features "download-binaries"
 
       - name: Copy model folder for AArch64 macOS
         run: |
@@ -239,11 +253,67 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build project for AArch64 macOS with inline-model feature
-        run: cargo build --release --target aarch64-apple-darwin --features "inline-model"
+      - name: Build project for AArch64 macOS (inline-model)
+        run: cargo build --release --target aarch64-apple-darwin
 
-      - name: Archive artifacts for AArch64 macOS with inline-model
+      - name: Archive artifacts for AArch64 macOS (inline-model)
         uses: actions/upload-artifact@v2
         with:
           name: aarch64-apple-darwin-inline
           path: ./target/aarch64-apple-darwin/release/ddddocr
+  
+  release:
+    if: ${{ github.event.inputs.publish }}
+    needs:
+      - build-windows-x86
+      - build-windows-x64
+      - build-windows-x86-inline
+      - build-windows-x64-inline
+      - build-linux
+      - build-linux-inline
+      - build-macos
+      - build-macos-inline
+      - build-aarch64-linux
+      - build-aarch64-linux-inline
+      - build-aarch64-macos
+      - build-aarch64-macos-inline
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Create Git tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag ${{ github.event.inputs.version }}
+          git push origin ${{ github.event.inputs.version }}
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ github.event.inputs.version }}
+          release_name: ${{ github.event.inputs.version }}
+          body: ${{ github.event.inputs.description }}
+          draft: false
+          prerelease: false
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: '**/*'
+          path: artifacts/
+
+      - name: Attach artifacts to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.event.inputs.version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload each artifact
+        run: |
+          for file in artifacts/**/*; do
+            gh release upload ${{ github.event.inputs.version }} "$file"
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

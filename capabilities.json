@@ -1,0 +1,217 @@
+{
+  "tools": [
+    {
+      "name": "ocr",
+      "description": "Perform OCR recognition on an image.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "description": "The image to recognize, base64 encoded."
+          },
+          "png_fix": {
+            "type": "boolean",
+            "description": "If true, supports transparent black background in PNG images.",
+            "default": false
+          },
+          "probability": {
+            "type": "boolean",
+            "description": "Whether to return probability information.",
+            "default": false
+          },
+          "charset_range": {
+            "type": "string",
+            "description": "Restrict character range for this OCR. '0-7' for built-in sets, or custom like \"0123456789+-x/=\"."
+          },
+          "color_filter": {
+            "type": "array",
+            "description": "Color filter(s), e.g., 'red', ['red', 'blue'], or [[[0,50,50],[10,255,255]]].",
+            "items": {}
+          }
+        },
+        "required": [
+          "image"
+        ]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Recognized text result."
+          },
+          "probability": {
+            "type": "array",
+            "description": "Probability information.",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        "required": [
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "det",
+      "description": "Detect bounding boxes in an image.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "description": "The image to detect, base64 encoded."
+          }
+        },
+        "required": [
+          "image"
+        ]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "bboxes": {
+            "type": "array",
+            "description": "Bounding box coordinates, e.g., [[x1, y1, x2, y2], ...]",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        "required": [
+          "bboxes"
+        ]
+      }
+    },
+    {
+      "name": "slide_match",
+      "description": "Perform a sliding puzzle match on images.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "target_image": {
+            "type": "string",
+            "description": "The slider image, base64 encoded."
+          },
+          "background_image": {
+            "type": "string",
+            "description": "The background image, base64 encoded."
+          },
+          "simple_target": {
+            "type": "boolean",
+            "description": "Whether it is a simple slider.",
+            "default": false
+          }
+        },
+        "required": [
+          "target_image",
+          "background_image"
+        ]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "array",
+            "description": "Target bounding box coordinates [x1, y1, x2, y2].",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "target_x": {
+            "type": "integer",
+            "description": "X offset of transparent area."
+          },
+          "target_y": {
+            "type": "integer",
+            "description": "Y offset of transparent area."
+          }
+        },
+        "required": [
+          "target",
+          "target_x",
+          "target_y"
+        ]
+      }
+    },
+    {
+      "name": "slide_comparison",
+      "description": "Compare slider position in two images.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "target_image": {
+            "type": "string",
+            "description": "The slider image, base64 encoded."
+          },
+          "background_image": {
+            "type": "string",
+            "description": "The background image, base64 encoded."
+          }
+        },
+        "required": [
+          "target_image",
+          "background_image"
+        ]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "integer",
+            "description": "X offset of the gap."
+          },
+          "y": {
+            "type": "integer",
+            "description": "Y offset of the gap."
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ]
+      }
+    },
+    {
+      "name": "status",
+      "description": "Get service status and enabled features.",
+      "input_schema": {
+        "type": "object",
+        "properties": {}
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "service_status": {
+            "type": "string",
+            "description": "Current service status."
+          },
+          "enabled_features": {
+            "type": "array",
+            "description": "List of enabled features.",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "service_status",
+          "enabled_features"
+        ]
+      }
+    }
+  ],
+  "_meta": {
+    "version": "2025-06-18",
+    "author": "Your Service Name",
+    "description": "Tool specifications for OCR, detection, and slider puzzle matching services."
+  }
+}

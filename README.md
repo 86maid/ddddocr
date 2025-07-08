@@ -35,14 +35,14 @@ a simple OCR API server, very easy to deploy。
 - [目录](#目录)
 - [环境支持](#环境支持)
 - [安装步骤](#安装步骤)
-  - [我们很高兴的宣布，从这个版本开始，我们不再需要依赖笨重的 DLL 啦！](#我们很高兴的宣布从这个版本开始我们不再需要依赖笨重的-dll-啦)
   - [如果你不想从源代码构建，这里有编译好的二进制版本。](#如果你不想从源代码构建这里有编译好的二进制版本)
-  - [旧版本。](#旧版本)
+  - [还可以使用配置好的 Github Action 进行构建。](#还可以使用配置好的-github-action-进行构建)
 - [使用文档](#使用文档)
   - [OCR 识别](#ocr-识别)
     - [内容识别](#内容识别)
     - [旧模型](#旧模型)
     - [支持识别透明黑色 png 格式的图片，使用 png\_fix 参数](#支持识别透明黑色-png-格式的图片使用-png_fix-参数)
+    - [颜色过滤](#颜色过滤)
     - [参考例图](#参考例图)
   - [目标检测](#目标检测)
     - [参考例图](#参考例图-1)
@@ -53,8 +53,12 @@ a simple OCR API server, very easy to deploy。
   - [自定义 OCR 训练模型导入](#自定义-ocr-训练模型导入)
 - [ocr\_api\_server 例子](#ocr_api_server-例子)
   - [运行方式](#运行方式)
-  - [接口](#接口)
-  - [接口测试例子，完整的测试请看 `test_api.py` 文件](#接口测试例子完整的测试请看-test_apipy-文件)
+  - [运行例子](#运行例子)
+  - [API 说明](#api-说明)
+  - [API 测试例子，完整的测试请看 `test_api.py` 文件](#api-测试例子完整的测试请看-test_apipy-文件)
+  - [MCP 协议支持](#mcp-协议支持)
+    - [mcp 请求](#mcp-请求)
+    - [mcp 响应](#mcp-响应)
 - [疑难杂症](#疑难杂症)
 
 # 环境支持
@@ -68,8 +72,6 @@ a simple OCR API server, very easy to deploy。
 | Macos X64        | √   | ?   | M1/M2/M3 ... 芯片参考<a href="https://github.com/sml2h3/ddddocr/issues/67"> #67 </a>                 |
 
 # 安装步骤
-
-## 我们很高兴的宣布，从这个版本开始，我们不再需要依赖笨重的 DLL 啦！
 
 `lib.rs` 实现了 `ddddocr`。
 
@@ -87,7 +89,7 @@ a simple OCR API server, very easy to deploy。
 
 ## 如果你不想从源代码构建，这里有编译好的[二进制版本](https://github.com/86maid/ddddocr/releases)。
 
-## [旧版本](https://github.com/86maid/ddddocr/tree/56b94a417374a836cfd6d0becc39dfe6d479f52f)。 
+## 还可以使用配置好的 [Github Action](https://github.com/86maid/ddddocr/tree/master/.github/workflows) 进行构建。
 
 # 使用文档
 
@@ -99,7 +101,7 @@ a simple OCR API server, very easy to deploy。
 ```rust
 let image = std::fs::read("target.png").unwrap();
 let mut ocr = ddddocr::ddddocr_classification().unwrap();
-let res = ocr.classification(image, false).unwrap();
+let res = ocr.classification(image).unwrap();
 println!("{:?}", res);
 ```
 
@@ -108,16 +110,50 @@ println!("{:?}", res);
 ```rust
 let image = std::fs::read("target.png").unwrap();
 let mut ocr = ddddocr::ddddocr_classification_old().unwrap();
-let res = ocr.classification(image, false).unwrap();
+let res = ocr.classification(image).unwrap();
 println!("{:?}", res);
 ```
 
 ### 支持识别透明黑色 png 格式的图片，使用 png_fix 参数
 
 ```
-classification(image, true);
+classification_with_png_fix(image, true);
 ```
 
+### 颜色过滤
+
+支持以下预设颜色：red（红色）、blue（蓝色）、green（绿色）、yellow（黄色）、orange（橙色）、purple（紫色）、cyan（青色）、black（黑色）、white（白色）、gray（灰色）。
+
+```rust
+let ddddocr = ddddocr_classification().unwrap();
+
+// 只保留绿色
+println!(
+    "{}",
+    ddddocr
+        .classification_with_filter(include_bytes!("../image/4.png"), "green")
+        .unwrap()
+);
+
+// 只保留红色和绿色
+println!(
+    "{}",
+    ddddocr
+        .classification_with_filter(include_bytes!("../image/4.png"), ["red", "green"])
+        .unwrap()
+);
+
+// HSV 范围，每个元素是一个 (min_hsv, max_hsv) 的元组。
+println!(
+    "{}",
+    ddddocr
+        .classification_with_filter(
+            include_bytes!("../image/4.png"),
+            [((40, 50, 50), (80, 255, 255))]
+        )
+        .unwrap()
+);
+```
 ### 参考例图
 
 <img src="https://cdn.wenanzhe.com/img/20210715211733855.png" alt="captcha" width="150">
@@ -228,15 +264,19 @@ let mut ocr = ddddocr::ddddocr_classification().unwrap();
 // 数字 3 对应枚举 CharsetRange::LowercaseUppercase，不用写枚举
 // ocr.set_ranges(3);
 
-// 自定义字符集
+// 设置全局字符集
 ocr.set_ranges("0123456789+-x/=");
 
-let result = ocr.classification_probability(image, false).unwrap();
+// 或者，单次识别的字符集
+// ocr.classification_probability_with_ranges(image, "0123456789+-x/=");
+
+let result = ocr.classification_probability(image).unwrap();
+
+println!("识别结果: {}", result.get_text());
+println!("识别可信度: {}", result.get_confidence());
 
 // 哦呀，看来数据有点儿太多了，小心卡死哦！
 println!("概率: {}", result.json());
-
-println!("识别结果: {}", result.get_text());
 ```
 
 ## 自定义 OCR 训练模型导入
@@ -259,91 +299,129 @@ println!("{:?}", res);
 # ocr_api_server 例子
 
 ## 运行方式
-```cmd
+```sh
 Usage: ddddocr.exe [OPTIONS]
 
 Options:
-  -a, --address <ADDRESS>
-          监听地址 [default: 127.0.0.1]
-  -p, --port <PORT>
-          监听端口 [default: 9898]
-  -f, --full
-          开启所有选项
-      --jsonp
-          开启跨域，需要一个 query 指定回调函数的名字，不能使用 file (multipart) 传递参数， 例如 http://127.0.0.1:9898/ocr/b64/text?callback=handle&image=xxx
+      --address <ADDRESS>
+          监听地址。 [default: 0.0.0.0:8000]
+      --mcp
+          mcp 协议支持。
       --ocr
-          开启内容识别，支持新旧模型共存
+          开启内容识别，与 old 互斥。
       --old
-          开启旧版模型内容识别，支持新旧模型共存
+          开启旧版模型内容识别，与 ocr 互斥。
       --det
-          开启目标检测
-      --ocr-probability <OCR_PROBABILITY>
-          开启内容概率识别，支持新旧模型共存，只能使用官方模型， 如果参数是 0 到 7，对应内置的字符集， 如果参数为空字符串，表示默认字符集， 除此之外的参数，表示自定义字符集，例如 "0123456789+-x/="
-      --old-probability <OLD_PROBABILITY>
-          开启旧版模型内容概率识别，支持新旧模型共存，只能使用官方模型， 如果参数是 0 到 7，对应内置的字符集， 如果参数为空字符串，表示默认字符集， 除此之外的参数，表示自定义字符集，例如 "0123456789+-x/="
+          开启目标检测。
+      --slide
+          开启滑块和坑位识别。
+      --ocr-charset-range <OCR_CHARSET_RANGE>
+          全局默认字符集，用于概率识别， 如果 API 未提供字符集，则使用此参数， 当值为 0~7 时，表示选择内置字符集， 其他值表示自定义字符集，例如 "0123456789+-x/="， 如果未设置，则使用完整字符集，不做限制。
       --ocr-path <OCR_PATH>
-          内容识别模型以及字符集路径， 通过哈希值判断是否为自定义模型， 使用自定义模型会使 old 选项失效， 路径 model/common 对应模型 model/common.onnx 和字符集 model/common.json [default: model/common]
+          内容识别模型以及字符集路径， 如果你开启了 features 的 inline-model 选项（默认开启），则不用管这个选项，除非你想使用自定义模型， 模型 model/common.onnx 和字符集 model/common.json 要同名。 [default: model/common.onnx]
       --det-path <DET_PATH>
-          目标检测模型路径 [default: model/common_det.onnx]
-      --slide-match
-          开启滑块识别
-      --simple-slide-match
-          开启简单滑块识别
-      --slide-compare
-          开启坑位识别
+          目标检测模型路径， 如果你开启了 features 的 inline-model 选项（默认开启），则不用管这个选项，除非你想使用自定义模型。 [default: model/common_det.onnx]
   -h, --help
           Print help
 ```
 
-## 接口
-测试是否启动成功，可以通过直接 `GET/POST` 访问 `http://{host}:{port}/ping` 来测试，如果返回 `pong` 则启动成功。
+## 运行例子
+```sh
+# 启动所有功能
+ddddocr.exe --address 0.0.0.0:8000 --ocr --det --slide
 
-```
-http://{host}:{port}/{opt}/{img_type}/{ret_type}
-
-opt:
-  ocr               内容识别
-  old               旧版模型内容识别
-  det               目标检测
-  ocr_probability   内容概率识别
-  old_probability   旧版模型内容概率识别
-  match             滑块匹配
-  simple_match      简单滑块匹配
-  compare           坑位匹配
-
-img_type:
-  file          文件，即 multipart/form-data
-  b64           base64，即 {"a": encode(bytes), "b": encode(bytes)}
-
-ret_type:
-  json          json，成功 {"status": 200, "result": object}，失败 {"status": 404, "msg": "失败原因"}
-  text          文本，失败返回空文本
+# 查看所有选项
+ddddocr.exe --help
 ```
 
-## 接口测试例子，完整的测试请看 `test_api.py` 文件
+## API 说明
+
+| 端点                | 方法 | 说明             |
+| ------------------- | ---- | ---------------- |
+| `/ocr`              | POST | 执行OCR识别      |
+| `/det`              | POST | 执行目标检测     |
+| `/slide-match`      | POST | 滑块匹配算法     |
+| `/slide-comparison` | POST | 滑块比较算法     |
+| `/status`           | GET  | 获取当前服务状态 |
+| `/docs`             | GET  | Swagger UI 文档  |
+
+## API 测试例子，完整的测试请看 `test_api.py` 文件
 
 ```python
-import requests
-import base64
+--> 200 GET /status
 
-host = "http://127.0.0.1:9898"
-file = open('./image/3.png', 'rb').read()
+  curl -X GET "http://127.0.0.1:8000/status"
 
-# 测试 jsonp，只能使用 b64，不能使用 file
-api_url = f"{host}/ocr/b64/text" 
-resp = requests.get(api_url, params = {
-  "callback": "handle",
-  "image": base64.b64encode(file).decode(),
-})
-print(f"jsonp, api_url={api_url}, resp.text={resp.text}")
+  {"enabled_features":["ocr","det","slide"],"service_status":"running"}
 
-# 测试 ocr
-api_url = f"{host}/ocr/file/text"
-resp = requests.post(api_url, files={'image': file})
-print(f"api_url={api_url}, resp.text={resp.text}")
+--> 200 POST /ocr
+
+  curl -X POST "http://127.0.0.1:8000/ocr"  
+       -H "Content-Type: application/json"  
+       -d '{"image": "base64 image"}'       
+
+  {"text":"九乘六等于？","probability":null}
+
+--> 200 POST /det
+
+  curl -X POST "http://127.0.0.1:8000/det"
+       -H "Content-Type: application/json"
+       -d '{"image": "base64 image"}'
+
+--> 200 POST /slide-match
+
+  curl -X POST "http://127.0.0.1:8000/slide-match"
+       -H "Content-Type: application/json"
+       -d '{"target_image": "base64 image", "background_image": "base64 image", "simple_target": true}'
+
+  {"target":[215,0,262,155],"target_x":0,"target_y":0}
+
+--> 200 POST /slide-comparison
+
+  curl -X POST "http://127.0.0.1:8000/slide-comparison"
+       -H "Content-Type: application/json"
+       -d '{"target_image": "base64 image", "background_image": "base64 image"}'
+
+  {"x":144,"y":76}
+```
+## MCP 协议支持
+
+本项目支持 MCP（Model Context Protocol）协议，使 AI Agent 能够直接调用 ddddocr 服务。
+
+- 能力声明：`GET /mcp/capabilities`
+- 工具调用：`POST /mcp/call`
+
+### mcp 请求
+
+```json
+{
+  "tool_name": "ocr",
+  "input": {
+    "image": "base64 image",
+    "png_fix": true,
+    "probability": false,
+    "charset_range": "0123456789",
+    "color_filter": ["red", "blue"]
+  }
+}
+```
+### mcp 响应
+
+```json
+{
+  "output": {
+    "text": "123456",
+    "probability": null
+  },
+  "error": null
+}
 ```
 
 # 疑难杂症
+
+强烈推荐用 [Github Action](https://github.com/86maid/ddddocr/tree/master/.github/workflows) 进行构建。
+
+关于使用 `cuda` 的问题。
 
 `cuda` 和 `cuDNN` 都需要安装好。
 
@@ -360,6 +438,8 @@ print(f"api_url={api_url}, resp.text={resp.text}")
 例如，库路径为 `onnxruntime\build\Windows\Release\Release\onnxruntime.lib`，则 `ORT_LIB_LOCATION` 设置为 `onnxruntime\build\Windows\Release`。
 
 默认开启 `download-binaries` 特性，自动下载链接库。
+
+下载不了大部分是网络问题，开启代理后，记得重启 vscode，重启终端，以便代理能够使用 https_proxy 环境变量。
 
 自动下载的链接库存放在 `C:\Users\<用户名>\AppData\ort.pyke.io`。
 
