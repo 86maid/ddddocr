@@ -292,11 +292,6 @@ jobs:
           pattern: '**'
           merge-multiple: true
           path: artifacts/
-      - name: List artifacts folder tree
-        run: |
-          echo "artifacts/ 目录结构："
-          tree artifacts || ls -R artifacts
-        shell: bash
       - name: Attach artifacts to Release
         uses: softprops/action-gh-release@v1
         with:
