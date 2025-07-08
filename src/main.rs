@@ -78,6 +78,11 @@ struct Args {
     /// 如果你开启了 features 的 inline-model 选项（默认开启），则不用管这个选项，除非你想使用自定义模型。
     #[arg(long, default_value_t = { "model/common_det.onnx".to_string() })]
     det_path: String,
+
+    /// 输入你的域名，自动获取 SSL 证书。
+    /// 即 https 的支持。
+    #[arg(long)]
+    acme: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
@@ -614,7 +619,13 @@ async fn main() {
 
     request::set_global_secure_max_size(50 * 1024 * 1024);
 
-    Server::new(TcpListener::new(args.address).bind().await)
-        .serve(service)
-        .await;
+    let acceptor = TcpListener::new(args.address);
+
+    if let Some(v) = &args.acme {
+        Server::new(acceptor.acme().add_domain(v).bind().await)
+            .serve(service)
+            .await;
+    } else {
+        Server::new(acceptor.bind().await).serve(service).await;
+    }
 }
