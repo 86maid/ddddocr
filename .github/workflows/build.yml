@@ -296,7 +296,7 @@ jobs:
 
       - name: Upload each artifact via gh
         run: |
-          for file in artifacts/**/*; do
+          for file in artifacts/*; do
             gh release upload ${{ github.event.inputs.version }} "$file"
           done
         env:
