@@ -283,14 +283,14 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: '**/*'
-          merge-multiple: true
+          pattern: '**'
+          merge-multiple: false
           path: artifacts/
 
       - name: Attach artifacts to Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.event.inputs.version }}
-          files: "${{ github.workspace }}/artifacts/"
+          files: artifacts/**/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
