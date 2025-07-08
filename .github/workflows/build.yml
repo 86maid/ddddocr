@@ -1,5 +1,8 @@
 name: build
 
+permissions:
+  contents: write
+
 on:
   workflow_dispatch:
     inputs:
@@ -245,6 +248,8 @@ jobs:
           path: ./target/aarch64-apple-darwin/release/ddddocr
 
   release:
+    permissions:
+      contents: write
     if: ${{ github.event.inputs.publish }}
     needs:
       - build-windows-x86
