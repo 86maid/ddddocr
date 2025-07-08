@@ -25,227 +25,232 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Build project for Windows x86 (non-inline)
         run: cargo build --release --target i686-pc-windows-msvc --no-default-features --features "download-binaries"
-
       - name: Copy model folder for Windows x86
         run: cp -r ./model ./target/i686-pc-windows-msvc/release/
-
-      - name: Archive artifacts for Windows x86
+      - name: Zip Windows x86 artifacts
+        run: |
+          cd ./target/i686-pc-windows-msvc/release
+          7z a ../../../i686-pc-windows-msvc.zip ddddocr.exe model
+      - name: Upload Windows x86 artifact
         uses: actions/upload-artifact@v4
         with:
           name: i686-pc-windows-msvc
-          path: |
-            ./target/i686-pc-windows-msvc/release/ddddocr.exe
-            ./target/i686-pc-windows-msvc/release/model
+          path: ./target/i686-pc-windows-msvc.zip
 
   build-windows-x64:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Build project for Windows x64 (non-inline)
         run: cargo build --release --no-default-features --features "download-binaries"
-
       - name: Copy model folder for Windows x64
         run: cp -r ./model ./target/release/
-
-      - name: Archive artifacts for Windows x64
+      - name: Zip Windows x64 artifacts
+        run: |
+          cd ./target/release
+          7z a ../../x86_64-pc-windows-msvc.zip ddddocr.exe model
+      - name: Upload Windows x64 artifact
         uses: actions/upload-artifact@v4
         with:
           name: x86_64-pc-windows-msvc
-          path: |
-            ./target/release/ddddocr.exe
-            ./target/release/model
+          path: ./target/x86_64-pc-windows-msvc.zip
 
   build-windows-x86-inline:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Build project for Windows x86 (inline-model)
         run: cargo build --release --target i686-pc-windows-msvc
-
-      - name: Archive artifacts for Windows x86 (inline-model)
+      - name: Zip Windows x86 inline artifacts
+        run: |
+          cd ./target/i686-pc-windows-msvc/release
+          7z a ../../../i686-pc-windows-msvc-inline.zip ddddocr.exe
+      - name: Upload Windows x86 inline artifact
         uses: actions/upload-artifact@v4
         with:
           name: i686-pc-windows-msvc-inline
-          path: ./target/i686-pc-windows-msvc/release/ddddocr.exe
+          path: ./target/i686-pc-windows-msvc-inline.zip
 
   build-windows-x64-inline:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Build project for Windows x64 (inline-model)
         run: cargo build --release
-
-      - name: Archive artifacts for Windows x64 (inline-model)
+      - name: Zip Windows x64 inline artifacts
+        run: |
+          cd ./target/release
+          7z a ../../x86_64-pc-windows-msvc-inline.zip ddddocr.exe
+      - name: Upload Windows x64 inline artifact
         uses: actions/upload-artifact@v4
         with:
           name: x86_64-pc-windows-msvc-inline
-          path: ./target/release/ddddocr.exe
+          path: ./target/x86_64-pc-windows-msvc-inline.zip
 
   build-linux:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Build project for Linux (non-inline)
         run: cargo build --release --no-default-features --features "download-binaries"
-
       - name: Copy model folder for Linux
         run: cp -r ./model ./target/release/
-
-      - name: Archive artifacts for Linux
+      - name: Zip Linux artifacts
+        run: |
+          cd ./target/release
+          zip -r linux-x86_64.zip ddddocr model
+          mv linux-x86_64.zip ../linux-x86_64.zip
+      - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
           name: x86_64-unknown-linux-gnu
-          path: |
-            ./target/release/ddddocr
-            ./target/release/model
+          path: ./target/linux-x86_64.zip
 
   build-linux-inline:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Build project for Linux (inline-model)
         run: cargo build --release
-
-      - name: Archive artifacts for Linux (inline-model)
+      - name: Zip Linux inline artifacts
+        run: |
+          cd ./target/release
+          zip -r linux-x86_64-inline.zip ddddocr
+          mv linux-x86_64-inline.zip ../linux-x86_64-inline.zip
+      - name: Upload Linux inline artifact
         uses: actions/upload-artifact@v4
         with:
           name: x86_64-unknown-linux-gnu-inline
-          path: ./target/release/ddddocr
+          path: ./target/linux-x86_64-inline.zip
 
   build-macos:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Build project for macOS (non-inline)
         run: cargo build --release --no-default-features --features "download-binaries"
-
       - name: Copy model folder for macOS
         run: cp -r ./model ./target/release/
-
-      - name: Archive artifacts for macOS
+      - name: Zip macOS artifacts
+        run: |
+          cd ./target/release
+          zip -r macos-x86_64.zip ddddocr model
+          mv macos-x86_64.zip ../macos-x86_64.zip
+      - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: x86_64-apple-darwin
-          path: |
-            ./target/release/ddddocr
-            ./target/release/model
+          path: ./target/macos-x86_64.zip
 
   build-macos-inline:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Build project for macOS (inline-model)
         run: cargo build --release
-
-      - name: Archive artifacts for macOS (inline-model)
+      - name: Zip macOS inline artifacts
+        run: |
+          cd ./target/release
+          zip -r macos-x86_64-inline.zip ddddocr
+          mv macos-x86_64-inline.zip ../macos-x86_64-inline.zip
+      - name: Upload macOS inline artifact
         uses: actions/upload-artifact@v4
         with:
           name: x86_64-apple-darwin-inline
-          path: ./target/release/ddddocr
+          path: ./target/macos-x86_64-inline.zip
 
   build-aarch64-linux:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Install stable Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-
       - name: Add AArch64 target for Linux
         run: rustup target add aarch64-unknown-linux-gnu
-
-      - name: Install AArch64 Linux toolchain and dependencies
+      - name: Install AArch64 Linux dependencies
         run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu build-essential libc6-dev-arm64-cross
-
       - name: Build project for AArch64 Linux (non-inline)
         run: |
           export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
           export RUSTFLAGS="-L /usr/aarch64-linux-gnu/lib"
           cargo build --release --target aarch64-unknown-linux-gnu --no-default-features --features "download-binaries"
-
       - name: Copy model folder for AArch64 Linux
         run: cp -r ./model ./target/aarch64-unknown-linux-gnu/release/
-
-      - name: Archive artifacts for AArch64 Linux
+      - name: Zip AArch64 Linux artifacts
+        run: |
+          cd ./target/aarch64-unknown-linux-gnu/release
+          zip -r aarch64-linux.zip ddddocr model
+          mv aarch64-linux.zip ../../aarch64-unknown-linux-gnu.zip
+      - name: Upload AArch64 Linux artifact
         uses: actions/upload-artifact@v4
         with:
           name: aarch64-unknown-linux-gnu
-          path: |
-            ./target/aarch64-unknown-linux-gnu/release/ddddocr
-            ./target/aarch64-unknown-linux-gnu/release/model
+          path: ./target/aarch64-unknown-linux-gnu.zip
 
   build-aarch64-linux-inline:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Install stable Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-
-      - name: Add AArch64 target for Linux
+      - name: Add AArch64 target
         run: rustup target add aarch64-unknown-linux-gnu
-
-      - name: Install AArch64 Linux toolchain and dependencies
+      - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu build-essential libc6-dev-arm64-cross
-
       - name: Build project for AArch64 Linux (inline-model)
+        run: cargo build --release --target aarch64-unknown-linux-gnu
+      - name: Zip inline AArch64 Linux artifacts
         run: |
-          export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
-          export RUSTFLAGS="-L /usr/aarch64-linux-gnu/lib"
-          cargo build --release --target aarch64-unknown-linux-gnu
-
-      - name: Archive artifacts for AArch64 Linux (inline-model)
+          cd ./target/aarch64-unknown-linux-gnu/release
+          zip -r aarch64-linux-inline.zip ddddocr
+          mv aarch64-linux-inline.zip ../../aarch64-unknown-linux-gnu-inline.zip
+      - name: Upload AArch64 Linux inline artifact
         uses: actions/upload-artifact@v4
         with:
           name: aarch64-unknown-linux-gnu-inline
-          path: ./target/aarch64-unknown-linux-gnu/release/ddddocr
+          path: ./target/aarch64-unknown-linux-gnu-inline.zip
 
   build-aarch64-macos:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Build project for AArch64 macOS (non-inline)
         run: cargo build --release --target aarch64-apple-darwin --no-default-features --features "download-binaries"
-
-      - name: Copy model folder for AArch64 macOS
+      - name: Copy model folder
         run: cp -r ./model ./target/aarch64-apple-darwin/release/
-
-      - name: Archive artifacts for AArch64 macOS
+      - name: Zip AArch64 macOS artifacts
+        run: |
+          cd ./target/aarch64-apple-darwin/release
+          zip -r aarch64-macos.zip ddddocr model
+          mv aarch64-macos.zip ../../aarch64-apple-darwin.zip
+      - name: Upload AArch64 macOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: aarch64-apple-darwin
-          path: |
-            ./target/aarch64-apple-darwin/release/ddddocr
-            ./target/aarch64-apple-darwin/release/model
+          path: ./target/aarch64-apple-darwin.zip
 
   build-aarch64-macos-inline:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Build project for AArch64 macOS (inline-model)
         run: cargo build --release --target aarch64-apple-darwin
-
-      - name: Archive artifacts for AArch64 macOS (inline-model)
+      - name: Zip inline AArch64 macOS artifacts
+        run: |
+          cd ./target/aarch64-apple-darwin/release
+          zip -r aarch64-macos-inline.zip ddddocr
+          mv aarch64-macos-inline.zip ../../aarch64-apple-darwin-inline.zip
+      - name: Upload AArch64 macOS inline artifact
         uses: actions/upload-artifact@v4
         with:
           name: aarch64-apple-darwin-inline
-          path: ./target/aarch64-apple-darwin/release/ddddocr
+          path: ./target/aarch64-apple-darwin-inline.zip
 
   release:
     permissions:
@@ -268,7 +273,6 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-
       - name: Create GitHub Release
         uses: actions/create-release@v1
         with:
@@ -279,32 +283,21 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Download all artifacts (as zip)
-        run: |
-          mkdir -p artifacts
-          echo "Fetching artifact list..."
-          gh api \
-            repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts \
-            --jq '.artifacts[].archive_download_url' |
-          while read url; do
-            name=$(basename "$url" | cut -d? -f1)
-            echo "Downloading $name ..."
-            gh api "$url" > "artifacts/$name.zip"
-          done
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: '**'
+          merge-multiple: true
+          path: artifacts/
       - name: List artifacts folder tree
         run: |
           echo "artifacts/ 目录结构："
           tree artifacts || ls -R artifacts
         shell: bash
-
       - name: Attach artifacts to Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.event.inputs.version }}
-          files: artifacts/*.zip
+          files: artifacts/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
