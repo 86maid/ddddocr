@@ -310,7 +310,7 @@ ddddocr.exe --help
 
   curl -X GET "http://127.0.0.1:8000/status"
 
-  {"enabled_features":["ocr","det","slide"],"service_status":"running"}
+  {"code":200,"msg":"success","data":{"service_status":"running","enabled_features":["ocr","det","slide"]}}
 
 --> 200 POST /ocr
 
@@ -318,7 +318,7 @@ ddddocr.exe --help
        -H "Content-Type: application/json"  
        -d '{"image": "base64 image"}'       
 
-  {"text":"9×6=?","probability":null}
+  {"code":200,"msg":"success","data":{"text":"九乘六等于？","probability":null}}
 
 --> 200 POST /det
 
@@ -326,13 +326,15 @@ ddddocr.exe --help
        -H "Content-Type: application/json"
        -d '{"image": "base64 image"}'
 
+  {"code":200,"msg":"success","data":{"bboxes":[[80,3,98,21],[56,6,76,25],[31,7,51,26],[2,2,21,22],[100,0,127,18]]}}
+
 --> 200 POST /slide-match
 
   curl -X POST "http://127.0.0.1:8000/slide-match"
        -H "Content-Type: application/json"
        -d '{"target_image": "base64 image", "background_image": "base64 image", "simple_target": true}'
 
-  {"target":[215,0,262,155],"target_x":0,"target_y":0}
+  {"code":200,"msg":"success","data":{"target":[215,45,261,91],"target_x":0,"target_y":45}}
 
 --> 200 POST /slide-comparison
 
@@ -340,7 +342,7 @@ ddddocr.exe --help
        -H "Content-Type: application/json"
        -d '{"target_image": "base64 image", "background_image": "base64 image"}'
 
-  {"x":144,"y":76}
+  {"code":200,"msg":"success","data":{"x":144,"y":76}}
 ```
 
 ## MCP Protocol Support
