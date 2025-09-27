@@ -475,7 +475,7 @@ async fn route_mcp_info(res: &mut Response) {
     res.render(Json(serde_json::json!({
         "protocol": "MCP",
         "version": "1.0.0",
-        "description": "DDDDOCR MCP协议支持",
+        "description": "DDDDOCR MCP 协议支持",
         "endpoints": {
             "capabilities": "/mcp/capabilities",
             "call": "/mcp/call"
