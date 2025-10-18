@@ -255,57 +255,57 @@ jobs:
           name: aarch64-apple-darwin-inline
           path: ./target/aarch64-apple-darwin-inline.zip
   
-  build-linux-musl:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install stable Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-      - name: Add MUSL target for Linux
-        run: rustup target add x86_64-unknown-linux-musl
-      - name: Install MUSL dependencies
-        run: sudo apt-get update && sudo apt-get install -y musl-tools build-essential
-      - name: Build project for Linux MUSL (non-inline)
-        run: cargo build --release --target x86_64-unknown-linux-musl --no-default-features --features "download-binaries"
-      - name: Copy model folder for Linux MUSL
-        run: cp -r ./model ./target/x86_64-unknown-linux-musl/release/
-      - name: Zip Linux MUSL artifacts
-        run: |
-          cd ./target/x86_64-unknown-linux-musl/release
-          zip -r linux-musl-x86_64.zip ddddocr model
-          mv linux-musl-x86_64.zip ../x86_64-unknown-linux-musl.zip
-      - name: Upload Linux MUSL artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: x86_64-unknown-linux-musl
-          path: ./target/x86_64-unknown-linux-musl.zip
+  # build-linux-musl:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Install stable Rust toolchain
+  #       uses: dtolnay/rust-toolchain@stable
+  #       with:
+  #         toolchain: stable
+  #     - name: Add MUSL target for Linux
+  #       run: rustup target add x86_64-unknown-linux-musl
+  #     - name: Install MUSL dependencies
+  #       run: sudo apt-get update && sudo apt-get install -y musl-tools build-essential
+  #     - name: Build project for Linux MUSL (non-inline)
+  #       run: cargo build --release --target x86_64-unknown-linux-musl --no-default-features --features "download-binaries"
+  #     - name: Copy model folder for Linux MUSL
+  #       run: cp -r ./model ./target/x86_64-unknown-linux-musl/release/
+  #     - name: Zip Linux MUSL artifacts
+  #       run: |
+  #         cd ./target/x86_64-unknown-linux-musl/release
+  #         zip -r linux-musl-x86_64.zip ddddocr model
+  #         mv linux-musl-x86_64.zip ../x86_64-unknown-linux-musl.zip
+  #     - name: Upload Linux MUSL artifact
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: x86_64-unknown-linux-musl
+  #         path: ./target/x86_64-unknown-linux-musl.zip
 
-  build-linux-musl-inline:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install stable Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-      - name: Add MUSL target for Linux
-        run: rustup target add x86_64-unknown-linux-musl
-      - name: Install MUSL dependencies
-        run: sudo apt-get update && sudo apt-get install -y musl-tools build-essential
-      - name: Build project for Linux MUSL (inline-model)
-        run: cargo build --release --target x86_64-unknown-linux-musl
-      - name: Zip Linux MUSL inline artifacts
-        run: |
-          cd ./target/x86_64-unknown-linux-musl/release
-          zip -r linux-musl-x86_64-inline.zip ddddocr
-          mv linux-musl-x86_64-inline.zip ../x86_64-unknown-linux-musl-inline.zip
-      - name: Upload Linux MUSL inline artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: x86_64-unknown-linux-musl-inline
-          path: ./target/x86_64-unknown-linux-musl-inline.zip
+  # build-linux-musl-inline:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Install stable Rust toolchain
+  #       uses: dtolnay/rust-toolchain@stable
+  #       with:
+  #         toolchain: stable
+  #     - name: Add MUSL target for Linux
+  #       run: rustup target add x86_64-unknown-linux-musl
+  #     - name: Install MUSL dependencies
+  #       run: sudo apt-get update && sudo apt-get install -y musl-tools build-essential
+  #     - name: Build project for Linux MUSL (inline-model)
+  #       run: cargo build --release --target x86_64-unknown-linux-musl
+  #     - name: Zip Linux MUSL inline artifacts
+  #       run: |
+  #         cd ./target/x86_64-unknown-linux-musl/release
+  #         zip -r linux-musl-x86_64-inline.zip ddddocr
+  #         mv linux-musl-x86_64-inline.zip ../x86_64-unknown-linux-musl-inline.zip
+  #     - name: Upload Linux MUSL inline artifact
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: x86_64-unknown-linux-musl-inline
+  #         path: ./target/x86_64-unknown-linux-musl-inline.zip
 
   release:
     permissions:
@@ -324,8 +324,8 @@ jobs:
       - build-aarch64-linux-inline
       - build-aarch64-macos
       - build-aarch64-macos-inline
-      - build-linux-musl
-      - build-linux-musl-inline
+      # - build-linux-musl
+      # - build-linux-musl-inline
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
