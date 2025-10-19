@@ -34,7 +34,7 @@ jobs:
       - name: Build project inside Docker
         run: |
           docker run --rm -v ${{ github.workspace }}:/app -w /app rust-musl-builder \
-            sh -c "cargo build --release --target x86_64-unknown-linux-musl"
+            sh -c "cargo build --release --target x86_64-unknown-linux-musl && chown -R $(id -u):$(id -g) target"
 
       - name: Zip Linux MUSL inline artifacts
         run: |
