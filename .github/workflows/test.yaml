@@ -40,7 +40,7 @@ jobs:
         run: |
           cd ./target/x86_64-unknown-linux-musl/release
           zip -r linux-musl-x86_64-inline.zip ddddocr
-          mv linux-musl-x86_64-inline.zip ../x86_64-unknown-linux-musl-inline.zip
+          mv linux-musl-x86_64-inline.zip ../../x86_64-unknown-linux-musl-inline.zip
 
       - name: Upload Linux MUSL inline artifact
         uses: actions/upload-artifact@v4
@@ -58,6 +58,7 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+
       - name: Create GitHub Release
         uses: actions/create-release@v1
         with:
@@ -68,12 +69,14 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           pattern: '**'
           merge-multiple: true
           path: artifacts/
+
       - name: Attach artifacts to Release
         uses: softprops/action-gh-release@v1
         with:
