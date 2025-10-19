@@ -460,6 +460,8 @@ ddddocr.exe --help
 
 windows 静态链接失败，请安装 vs2022。
 
+linux musl 要用 docker 编译。
+
 linux x86-64 静态链接失败，请安装 gcc11 和 g++11，ubuntu ≥ 20.04。
 
 linux arm64 静态链接失败，需要 glibc ≥ 2.35 （Ubuntu ≥ 22.04）。
