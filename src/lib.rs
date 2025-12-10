@@ -1,4 +1,5 @@
 /// 初始化内容识别。
+#[cfg(feature = "inline-model")]
 pub fn ddddocr_classification() -> anyhow::Result<Ddddocr<'static>> {
     Ddddocr::new(
         include_bytes!("../model/common.onnx"),
@@ -6,6 +7,13 @@ pub fn ddddocr_classification() -> anyhow::Result<Ddddocr<'static>> {
     )
 }
 
+#[cfg(not(feature = "inline-model"))]
+pub fn ddddocr_classification() -> anyhow::Result<Ddddocr<'static>> {
+    Ddddocr::new(
+        std::fs::read("model/common.onnx").unwrap(),
+        serde_json::from_str(&std::fs::read_to_string("model/common.json").unwrap()).unwrap(),
+    )
+}
 /// 初始化内容识别。
 #[cfg(feature = "cuda")]
 pub fn ddddocr_classification_cuda(device_id: i32) -> anyhow::Result<Ddddocr<'static>> {
@@ -17,10 +25,19 @@ pub fn ddddocr_classification_cuda(device_id: i32) -> anyhow::Result<Ddddocr<'st
 }
 
 /// 使用旧模型初始化内容识别。
+#[cfg(feature = "inline-model")]
 pub fn ddddocr_classification_old() -> anyhow::Result<Ddddocr<'static>> {
     Ddddocr::new(
         include_bytes!("../model/common_old.onnx"),
         serde_json::from_str(include_str!("../model/common_old.json")).unwrap(),
+    )
+}
+
+#[cfg(not(feature = "inline-model"))]
+pub fn ddddocr_classification_old() -> anyhow::Result<Ddddocr<'static>> {
+    Ddddocr::new(
+        std::fs::read("model/common_old.onnx").unwrap(),
+        serde_json::from_str(&std::fs::read_to_string("model/common_old.json").unwrap()).unwrap(),
     )
 }
 
@@ -35,8 +52,14 @@ pub fn ddddocr_classification_old_cuda(device_id: i32) -> anyhow::Result<Ddddocr
 }
 
 /// 初始化目标检测。
+#[cfg(feature = "inline-model")]
 pub fn ddddocr_detection() -> anyhow::Result<Ddddocr<'static>> {
     Ddddocr::new_model(include_bytes!("../model/common_det.onnx"))
+}
+
+#[cfg(not(feature = "inline-model"))]
+pub fn ddddocr_detection() -> anyhow::Result<Ddddocr<'static>> {
+    Ddddocr::new_model(std::fs::read("model/common_det.onnx").unwrap())
 }
 
 /// 初始化目标检测。
@@ -395,7 +418,7 @@ impl CharacterProbability {
                 s += &self.charset[n];
             }
 
-            return s;
+            s
         })
     }
 
@@ -408,7 +431,7 @@ impl CharacterProbability {
                 if let Some(v) = i.iter().fold(None, |acc: Option<f64>, &i| {
                     acc.map_or(Some(i as f64), |max| Some(max.max(i as f64)))
                 }) {
-                    max_sum += v as f64;
+                    max_sum += v;
                     count += 1;
                 }
             }
@@ -772,8 +795,7 @@ where
     fn from(value: [T; N]) -> Self {
         value
             .into_iter()
-            .map(|v| v.into_hsv_ranges())
-            .flatten()
+            .flat_map(|v| v.into_hsv_ranges())
             .collect::<Vec<_>>()
             .into()
     }
@@ -785,9 +807,8 @@ where
 {
     fn from(value: &'a [T; N]) -> Self {
         value
-            .into_iter()
-            .map(|v| v.clone().into_hsv_ranges())
-            .flatten()
+            .iter()
+            .flat_map(|v| v.clone().into_hsv_ranges())
             .collect::<Vec<_>>()
             .into()
     }
@@ -803,8 +824,7 @@ impl From<Vec<&str>> for ColorFilter {
     fn from(value: Vec<&str>) -> Self {
         value
             .into_iter()
-            .map(|v| Color::from(v).into_hsv_ranges())
-            .flatten()
+            .flat_map(|v| Color::from(v).into_hsv_ranges())
             .collect::<Vec<_>>()
             .into()
     }
@@ -814,8 +834,7 @@ impl From<Vec<String>> for ColorFilter {
     fn from(value: Vec<String>) -> Self {
         value
             .iter()
-            .map(|v| Color::from(v.as_str()).into_hsv_ranges())
-            .flatten()
+            .flat_map(|v| Color::from(v.as_str()).into_hsv_ranges())
             .collect::<Vec<_>>()
             .into()
     }
@@ -825,8 +844,7 @@ impl From<Vec<Color>> for ColorFilter {
     fn from(value: Vec<Color>) -> Self {
         value
             .into_iter()
-            .map(|v| v.into_hsv_ranges())
-            .flatten()
+            .flat_map(|v| v.into_hsv_ranges())
             .collect::<Vec<_>>()
             .into()
     }
@@ -1206,10 +1224,9 @@ impl<'a> Ddddocr<'a> {
                     .chars()
                     .collect::<Vec<char>>();
 
-                (&**self
-                    .charset
+                self.charset
                     .as_ref()
-                    .expect("only the ocr model can be used"))
+                    .expect("only the ocr model can be used")
                     .charset
                     .clone()
                     .into_iter()
@@ -1384,10 +1401,9 @@ impl<'a> Ddddocr<'a> {
                                 .chars()
                                 .collect::<Vec<char>>();
 
-                        (&**self
-                            .charset
+                        self.charset
                             .as_ref()
-                            .ok_or(anyhow::anyhow!("only the ocr model can be used"))?)
+                            .ok_or(anyhow::anyhow!("only the ocr model can be used"))?
                             .charset
                             .clone()
                             .into_iter()
@@ -1494,7 +1510,7 @@ impl<'a> Ddddocr<'a> {
         let ort_outs = &ort_outs[0].try_extract_tensor()?;
 
         // 长这样 [[[1,2,3,4]], [[1,2,3,4]], [[1,2,3,4]]]
-        let ort_outs = ort_outs.mapv(|v| f32::exp(v)) / ort_outs.mapv(|v| f32::exp(v)).sum();
+        let ort_outs = ort_outs.mapv(f32::exp) / ort_outs.mapv(f32::exp).sum();
 
         // 长这样 [[1,2,3,4], [1,2,3,4], [1,2,3,4]]
         let ort_outs_sum = ort_outs.sum_axis(ndarray::Axis(2));
@@ -1526,12 +1542,12 @@ impl<'a> Ddddocr<'a> {
 
         if charset_ranges.is_empty() {
             // 返回全部字符的概率
-            return Ok(CharacterProbability {
+            Ok(CharacterProbability {
                 text: None,
                 charset: charset.clone(),
                 probability: result,
                 confidence: None,
-            });
+            })
         } else {
             // 根据指定的字符范围，从模型输出的概率结果中提取对应字符的概率
             // 如果字符不在字符集中，则将其概率设置为 -1.0，表示未知字符
@@ -1561,12 +1577,12 @@ impl<'a> Ddddocr<'a> {
                 probability_result.push(inner_vec);
             }
 
-            return Ok(CharacterProbability {
+            Ok(CharacterProbability {
                 text: None,
                 charset: charset_ranges.clone(),
                 probability: probability_result,
                 confidence: None,
-            });
+            })
         }
     }
 
@@ -1719,70 +1735,68 @@ impl<'a> Ddddocr<'a> {
         }
 
         if word {
-            Ok((&self.session.run(ort::inputs![tensor]?)?[1])
+            Ok(self.session.run(ort::inputs![tensor]?)?[1]
                 .try_extract_tensor::<i64>()?
                 .iter()
                 .map(|&v| charset[v as usize].to_string())
                 .collect::<String>())
+        } else if self.diy {
+            // todo: 自定义模型未经测试
+            let result = &self.session.run(ort::inputs![tensor]?)?[0];
+
+            let result = result.try_extract_tensor::<u32>()?;
+
+            let mut last_item = 0;
+
+            Ok(result
+                .iter()
+                .filter(|&&v| {
+                    if v != 0 && v != last_item {
+                        last_item = v;
+                        true
+                    } else {
+                        false
+                    }
+                })
+                .map(|&v| charset[v as usize].to_string())
+                .collect::<String>())
         } else {
-            if self.diy {
-                // todo: 自定义模型未经测试
-                let result = &self.session.run(ort::inputs![tensor]?)?[0];
+            let result = &self.session.run(ort::inputs![tensor]?)?[0];
 
-                let result = result.try_extract_tensor::<u32>()?;
+            let result = result.try_extract_tensor::<f32>()?;
 
-                let mut last_item = 0;
+            let mut last_item = 0;
 
-                Ok(result
-                    .iter()
-                    .filter(|&&v| {
-                        if v != 0 && v != last_item {
-                            last_item = v;
-                            true
-                        } else {
-                            false
-                        }
-                    })
-                    .map(|&v| charset[v as usize].to_string())
-                    .collect::<String>())
-            } else {
-                let result = &self.session.run(ort::inputs![tensor]?)?[0];
+            // 输入长这样 [[[1,2,3,4], [1,2,3,4], [1,2,3,4]]]
+            // 我们要获取   ^^^^^^^^^  ^^^^^^^^^  ^^^^^^^^^
+            // 最后结果 [3, 3, 3]
+            // 这是最大值的索引
+            let result = result
+                .rows()
+                .into_iter()
+                .map(|v| {
+                    // 找出数组中元素值最大的那个，然后获取他在数组中的索引
+                    v.iter()
+                        .enumerate()
+                        .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+                        .unwrap_or((0, &0.0))
+                        .0
+                })
+                .collect::<Vec<usize>>();
 
-                let result = result.try_extract_tensor::<f32>()?;
-
-                let mut last_item = 0;
-
-                // 输入长这样 [[[1,2,3,4], [1,2,3,4], [1,2,3,4]]]
-                // 我们要获取   ^^^^^^^^^  ^^^^^^^^^  ^^^^^^^^^
-                // 最后结果 [3, 3, 3]
-                // 这是最大值的索引
-                let result = result
-                    .rows()
-                    .into_iter()
-                    .map(|v| {
-                        // 找出数组中元素值最大的那个，然后获取他在数组中的索引
-                        v.iter()
-                            .enumerate()
-                            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
-                            .unwrap_or((0, &0.0))
-                            .0
-                    })
-                    .collect::<Vec<usize>>();
-
-                // 过滤无效字符
-                Ok(result
-                    .iter()
-                    .filter(|&&v| {
-                        if v != 0 && v != last_item {
-                            last_item = v;
-                            true
-                        } else {
-                            false
-                        }
-                    })
-                    .map(|&v| charset[v as usize].to_string())
-                    .collect::<String>())
-            }
+            // 过滤无效字符
+            Ok(result
+                .iter()
+                .filter(|&&v| {
+                    if v != 0 && v != last_item {
+                        last_item = v;
+                        true
+                    } else {
+                        false
+                    }
+                })
+                .map(|&v| charset[v].to_string())
+                .collect::<String>())
         }
     }
 
@@ -1807,7 +1821,7 @@ impl<'a> Ddddocr<'a> {
                 .to_image()
                 .write_to(&mut buffer, image::ImageFormat::Png)?;
 
-            result.push((i.clone(), self.classification(buffer.into_inner())?));
+            result.push((*i, self.classification(buffer.into_inner())?));
         }
 
         Ok(result)
@@ -2019,6 +2033,12 @@ mod tests {
 
     use super::*;
 
+    fn read_image(path: &str) -> Vec<u8> {
+        std::fs::read(path).unwrap_or_else(|e| {
+            panic!("Failed to read image {}: {}", path, e);
+        })
+    }
+
     #[test]
     fn classification_probability() {
         let mut ddddocr = ddddocr_classification().unwrap();
@@ -2027,14 +2047,14 @@ mod tests {
         ddddocr.set_ranges(3);
 
         let mut result = ddddocr
-            .classification_probability(include_bytes!("../image/3.png"))
+            .classification_probability(read_image("image/3.png"))
             .unwrap();
 
         println!("识别结果: {}", result.get_text());
         println!("识别可信度: {}", result.get_confidence());
 
         // 哦呀，看来数据有点儿太多了，小心卡死哦！
-        println!("概率: {}", result.json());
+        // println!("概率: {}", result.json());
     }
 
     #[test]
@@ -2044,7 +2064,7 @@ mod tests {
         println!(
             "{}",
             ddddocr
-                .classification_with_filter(include_bytes!("../image/4.png"), "green")
+                .classification_with_filter(read_image("image/4.png"), "green")
                 .unwrap()
         );
 
@@ -2052,7 +2072,7 @@ mod tests {
             "{}",
             ddddocr
                 .classification_with_filter(
-                    include_bytes!("../image/4.png"),
+                    read_image("image/4.png"),
                     [((40, 50, 50), (80, 255, 255))]
                 )
                 .unwrap()
@@ -2065,37 +2085,27 @@ mod tests {
 
         println!(
             "{}",
-            ddddocr
-                .classification(include_bytes!("../image/1.png"))
-                .unwrap()
+            ddddocr.classification(read_image("image/1.png")).unwrap()
         );
 
         println!(
             "{}",
-            ddddocr
-                .classification(include_bytes!("../image/2.png"))
-                .unwrap()
+            ddddocr.classification(read_image("image/2.png")).unwrap()
         );
 
         println!(
             "{}",
-            ddddocr
-                .classification(include_bytes!("../image/3.png"))
-                .unwrap()
+            ddddocr.classification(read_image("image/3.png")).unwrap()
         );
 
         println!(
             "{}",
-            ddddocr
-                .classification(include_bytes!("../image/4.png"))
-                .unwrap()
+            ddddocr.classification(read_image("image/4.png")).unwrap()
         );
 
         println!(
             "{}",
-            ddddocr
-                .classification(include_bytes!("../image/su.png"))
-                .unwrap()
+            ddddocr.classification(read_image("image/su.png")).unwrap()
         );
     }
 
@@ -2105,38 +2115,30 @@ mod tests {
 
         println!(
             "{}",
-            ddddocr
-                .classification(include_bytes!("../image/1.png"))
-                .unwrap()
+            ddddocr.classification(read_image("image/1.png")).unwrap()
         );
 
         println!(
             "{}",
-            ddddocr
-                .classification(include_bytes!("../image/2.png"))
-                .unwrap()
+            ddddocr.classification(read_image("image/2.png")).unwrap()
         );
 
         println!(
             "{}",
-            ddddocr
-                .classification(include_bytes!("../image/3.png"))
-                .unwrap()
+            ddddocr.classification(read_image("image/3.png")).unwrap()
         );
 
         println!(
             "{}",
-            ddddocr
-                .classification(include_bytes!("../image/4.png"))
-                .unwrap()
+            ddddocr.classification(read_image("image/4.png")).unwrap()
         );
     }
 
     #[test]
     fn classification_bbox() {
-        let input = include_bytes!("../image/6.jpg");
+        let input = read_image("image/6.jpg");
         let ddddocr = ddddocr_detection().unwrap();
-        let result = ddddocr.detection(input).unwrap();
+        let result = ddddocr.detection(input.clone()).unwrap();
         let ddddocr = ddddocr_classification().unwrap();
         let result = ddddocr.classification_bbox(input, &result).unwrap();
 
@@ -2146,57 +2148,57 @@ mod tests {
     #[test]
     fn detection() {
         let ddddocr = ddddocr_detection().unwrap();
-        let input = include_bytes!("../image/5.jpg");
-        let result = ddddocr.detection(input).unwrap();
+        let input = read_image("image/5.jpg");
+        let result = ddddocr.detection(input.clone()).unwrap();
 
         println!("{:?}", result);
 
         // 绘制红框
-        let mut image = image::load_from_memory(input).unwrap().to_rgb8();
+        let mut image = image::load_from_memory(&input).unwrap().to_rgb8();
 
         for v in result {
-            for i in v.x1 as u32..=v.x2 as u32 {
-                image[(i, v.y1 as u32)] = *image::Rgb::from_slice(&[237, 28, 36]);
+            for i in v.x1..=v.x2 {
+                image[(i, v.y1)] = *image::Rgb::from_slice(&[237, 28, 36]);
             }
 
-            for i in v.x1 as u32..=v.x2 as u32 {
-                image[(i, v.y2 as u32)] = *image::Rgb::from_slice(&[237, 28, 36]);
+            for i in v.x1..=v.x2 {
+                image[(i, v.y2)] = *image::Rgb::from_slice(&[237, 28, 36]);
             }
 
-            for i in v.y1 as u32..=v.y2 as u32 {
-                image[(v.x1 as u32, i)] = *image::Rgb::from_slice(&[237, 28, 36]);
+            for i in v.y1..=v.y2 {
+                image[(v.x1, i)] = *image::Rgb::from_slice(&[237, 28, 36]);
             }
 
-            for i in v.y1 as u32..=v.y2 as u32 {
-                image[(v.x2 as u32, i)] = *image::Rgb::from_slice(&[237, 28, 36]);
+            for i in v.y1..=v.y2 {
+                image[(v.x2, i)] = *image::Rgb::from_slice(&[237, 28, 36]);
             }
         }
 
         image.save("./output1.jpg").unwrap();
 
-        let input = include_bytes!("../image/6.jpg");
-        let result = ddddocr.detection(input).unwrap();
+        let input = read_image("image/6.jpg");
+        let result = ddddocr.detection(input.clone()).unwrap();
 
         println!("{:?}", result);
 
         // 绘制红框
-        let mut image = image::load_from_memory(input).unwrap().to_rgb8();
+        let mut image = image::load_from_memory(&input).unwrap().to_rgb8();
 
         for v in result {
-            for i in v.x1 as u32..=v.x2 as u32 {
-                image[(i, v.y1 as u32)] = *image::Rgb::from_slice(&[237, 28, 36]);
+            for i in v.x1..=v.x2 {
+                image[(i, v.y1)] = *image::Rgb::from_slice(&[237, 28, 36]);
             }
 
-            for i in v.x1 as u32..=v.x2 as u32 {
-                image[(i, v.y2 as u32)] = *image::Rgb::from_slice(&[237, 28, 36]);
+            for i in v.x1..=v.x2 {
+                image[(i, v.y2)] = *image::Rgb::from_slice(&[237, 28, 36]);
             }
 
-            for i in v.y1 as u32..=v.y2 as u32 {
-                image[(v.x1 as u32, i)] = *image::Rgb::from_slice(&[237, 28, 36]);
+            for i in v.y1..=v.y2 {
+                image[(v.x1, i)] = *image::Rgb::from_slice(&[237, 28, 36]);
             }
 
-            for i in v.y1 as u32..=v.y2 as u32 {
-                image[(v.x2 as u32, i)] = *image::Rgb::from_slice(&[237, 28, 36]);
+            for i in v.y1..=v.y2 {
+                image[(v.x2, i)] = *image::Rgb::from_slice(&[237, 28, 36]);
             }
         }
 
@@ -2205,38 +2207,27 @@ mod tests {
 
     #[test]
     fn slide_match() {
-        let result = crate::slide_match(
-            include_bytes!("../image/hk.png"),
-            include_bytes!("../image/bg.png"),
-        )
-        .unwrap();
+        let result =
+            crate::slide_match(read_image("image/hk.png"), read_image("image/bg.png")).unwrap();
 
         println!("{:?}", result);
 
-        let result = crate::slide_match(
-            include_bytes!("../image/a.png"),
-            include_bytes!("../image/b.png"),
-        )
-        .unwrap();
+        let result =
+            crate::slide_match(read_image("image/a.png"), read_image("image/b.png")).unwrap();
 
         println!("{:?}", result);
 
-        let result = crate::simple_slide_match(
-            include_bytes!("../image/a.png"),
-            include_bytes!("../image/b.png"),
-        )
-        .unwrap();
+        let result =
+            crate::simple_slide_match(read_image("image/a.png"), read_image("image/b.png"))
+                .unwrap();
 
         println!("{:?}", result);
     }
 
     #[test]
     fn comparison_match() {
-        let result = crate::slide_comparison(
-            include_bytes!("../image/c.jpg"),
-            include_bytes!("../image/d.jpg"),
-        )
-        .unwrap();
+        let result =
+            crate::slide_comparison(read_image("image/c.jpg"), read_image("image/d.jpg")).unwrap();
         println!("{:?}", result);
     }
 }

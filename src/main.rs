@@ -12,11 +12,7 @@ use salvo::oapi::extract::JsonBody;
 use salvo::prelude::*;
 use serde::Deserialize;
 use serde::Serialize;
-use std::fs::read;
-use std::fs::read_to_string;
 use std::num::NonZero;
-use std::path::PathBuf;
-use std::str::FromStr;
 use std::sync::LazyLock;
 use std::sync::OnceLock;
 use tokio::sync::Mutex;
@@ -373,7 +369,7 @@ async fn route_status(res: &mut Response) {
 
     let response = StatusResponse {
         service_status: "running".to_string(),
-        enabled_features: enabled_features,
+        enabled_features,
     };
 
     let response = APIResponse {
@@ -456,7 +452,7 @@ async fn route_mcp_call(
                 _ => {
                     res.render(Json(McpResponse {
                         output: None,
-                        error: Some(format!("404 Not Found")),
+                        error: Some("404 Not Found".to_string()),
                     }));
                 }
             }
@@ -504,77 +500,7 @@ async fn main() {
         .with_ansi(enable_ansi_support().is_ok())
         .init();
 
-    let ocr_charset_range = args.ocr_charset_range.map(|v| match v.as_str() {
-        "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" => {
-            CharsetRange::from(v.parse::<i32>().unwrap())
-        }
-        v => CharsetRange::from(v),
-    });
-
-    if cfg!(feature = "inline-model") {
-        if args.ocr {
-            let mut ddddocr = ddddocr_classification().unwrap();
-
-            if let Some(v) = ocr_charset_range {
-                ddddocr.set_ranges(v)
-            };
-
-            OCR.set(ddddocr).unwrap();
-
-            info!("ocr enabled successfully");
-        } else if args.old {
-            let mut ddddocr = ddddocr_classification_old().unwrap();
-
-            if let Some(v) = ocr_charset_range {
-                ddddocr.set_ranges(v)
-            };
-
-            OCR.set(ddddocr).unwrap();
-
-            info!("old enabled successfully");
-        }
-
-        if args.det {
-            DET.set(ddddocr_detection().unwrap()).unwrap();
-            info!("det enabled successfully");
-        }
-    } else {
-        if args.ocr || args.old {
-            let mut path = PathBuf::from(args.ocr_path);
-
-            let model = read(&path).expect("failed to open the ocr model file");
-
-            path.set_extension("json");
-
-            let charset = read_to_string(path).expect("failed to open the ocr charset file");
-
-            let mut ddddocr = Ddddocr::new(
-                &model,
-                Charset::from_str(&charset).expect("failed to parse charset"),
-            )
-            .unwrap();
-
-            if let Some(v) = ocr_charset_range {
-                ddddocr.set_ranges(v)
-            };
-
-            OCR.set(ddddocr).unwrap();
-
-            if args.ocr {
-                info!("ocr enabled successfully");
-            } else if args.old {
-                info!("old enabled successfully");
-            }
-        }
-
-        if args.det {
-            let model = read(args.det_path).expect("failed to open the det model file");
-
-            DET.set(Ddddocr::new_model(&model).unwrap()).unwrap();
-
-            info!("det enabled successfully");
-        }
-    }
+    init_ocr(&args);
 
     if args.slide {
         info!("slide enabled successfully");
@@ -627,5 +553,88 @@ async fn main() {
             .await;
     } else {
         Server::new(acceptor.bind().await).serve(service).await;
+    }
+}
+
+fn ocr_charset_range(args: &Args) -> Option<CharsetRange> {
+    args.ocr_charset_range.as_ref().map(|v| match v.as_str() {
+        "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" => {
+            CharsetRange::from(v.parse::<i32>().unwrap())
+        }
+        v => CharsetRange::from(v),
+    })
+}
+
+#[cfg(feature = "inline-model")]
+fn init_ocr(args: &Args) {
+    let ocr_charset_range = ocr_charset_range(args);
+    if args.ocr {
+        let mut ddddocr = ddddocr_classification().unwrap();
+
+        if let Some(v) = ocr_charset_range {
+            ddddocr.set_ranges(v)
+        };
+
+        OCR.set(ddddocr).unwrap();
+
+        info!("ocr enabled successfully");
+    } else if args.old {
+        let mut ddddocr = ddddocr_classification_old().unwrap();
+
+        if let Some(v) = ocr_charset_range {
+            ddddocr.set_ranges(v)
+        };
+
+        OCR.set(ddddocr).unwrap();
+
+        info!("old enabled successfully");
+    }
+
+    if args.det {
+        DET.set(ddddocr_detection().unwrap()).unwrap();
+        info!("det enabled successfully");
+    }
+}
+
+#[cfg(not(feature = "inline-model"))]
+fn init_ocr(args: &Args) {
+    use std::fs::{read, read_to_string};
+    use std::path::PathBuf;
+    use std::str::FromStr;
+    let ocr_charset_range = ocr_charset_range(args);
+    if args.ocr || args.old {
+        let mut path = PathBuf::from(args.ocr_path.clone());
+
+        let model = read(&path).expect("failed to open the ocr model file");
+
+        path.set_extension("json");
+
+        let charset = read_to_string(path).expect("failed to open the ocr charset file");
+
+        let mut ddddocr = Ddddocr::new(
+            &model,
+            Charset::from_str(&charset).expect("failed to parse charset"),
+        )
+        .unwrap();
+
+        if let Some(v) = ocr_charset_range {
+            ddddocr.set_ranges(v)
+        };
+
+        OCR.set(ddddocr).unwrap();
+
+        if args.ocr {
+            info!("ocr enabled successfully");
+        } else if args.old {
+            info!("old enabled successfully");
+        }
+    }
+
+    if args.det {
+        let model = read(args.det_path.clone()).expect("failed to open the det model file");
+
+        DET.set(Ddddocr::new_model(&model).unwrap()).unwrap();
+
+        info!("det enabled successfully");
     }
 }
