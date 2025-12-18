@@ -7,13 +7,15 @@ pub fn ddddocr_classification() -> anyhow::Result<Ddddocr<'static>> {
     )
 }
 
+/// 初始化内容识别。
 #[cfg(not(feature = "inline-model"))]
 pub fn ddddocr_classification() -> anyhow::Result<Ddddocr<'static>> {
     Ddddocr::new(
-        std::fs::read("model/common.onnx").unwrap(),
-        serde_json::from_str(&std::fs::read_to_string("model/common.json").unwrap()).unwrap(),
+        std::fs::read("model/common.onnx")?,
+        serde_json::from_str(&std::fs::read_to_string("model/common.json")?)?,
     )
 }
+
 /// 初始化内容识别。
 #[cfg(feature = "cuda")]
 pub fn ddddocr_classification_cuda(device_id: i32) -> anyhow::Result<Ddddocr<'static>> {
@@ -33,11 +35,12 @@ pub fn ddddocr_classification_old() -> anyhow::Result<Ddddocr<'static>> {
     )
 }
 
+/// 使用旧模型初始化内容识别。
 #[cfg(not(feature = "inline-model"))]
 pub fn ddddocr_classification_old() -> anyhow::Result<Ddddocr<'static>> {
     Ddddocr::new(
-        std::fs::read("model/common_old.onnx").unwrap(),
-        serde_json::from_str(&std::fs::read_to_string("model/common_old.json").unwrap()).unwrap(),
+        std::fs::read("model/common_old.onnx")?,
+        serde_json::from_str(&std::fs::read_to_string("model/common_old.json")?)?,
     )
 }
 
@@ -57,9 +60,10 @@ pub fn ddddocr_detection() -> anyhow::Result<Ddddocr<'static>> {
     Ddddocr::new_model(include_bytes!("../model/common_det.onnx"))
 }
 
+/// 初始化目标检测。
 #[cfg(not(feature = "inline-model"))]
 pub fn ddddocr_detection() -> anyhow::Result<Ddddocr<'static>> {
-    Ddddocr::new_model(std::fs::read("model/common_det.onnx").unwrap())
+    Ddddocr::new_model(std::fs::read("model/common_det.onnx")?)
 }
 
 /// 初始化目标检测。
@@ -1046,7 +1050,7 @@ impl<'a> Ddddocr<'a> {
             .with_copy_in_default_stream(true);
 
         if !ort::ExecutionProvider::is_available(&cuda)? {
-            anyhow::bail!("Please compile ONNX Runtime with CUDA!")
+            anyhow::bail!("please compile ONNX Runtime with CUDA!")
         }
 
         ort::ExecutionProvider::register(&cuda, &builder)?;
@@ -1079,7 +1083,7 @@ impl<'a> Ddddocr<'a> {
             .with_copy_in_default_stream(true);
 
         if !ort::ExecutionProvider::is_available(&cuda)? {
-            anyhow::bail!("Please compile ONNX Runtime with CUDA!")
+            anyhow::bail!("please compile ONNX Runtime with CUDA!")
         }
 
         ort::ExecutionProvider::register(&cuda, &builder)?;
@@ -1121,7 +1125,7 @@ impl<'a> Ddddocr<'a> {
             .with_copy_in_default_stream(true);
 
         if !ort::ExecutionProvider::is_available(&cuda)? {
-            anyhow::bail!("Please compile ONNX Runtime with CUDA!")
+            anyhow::bail!("please compile ONNX Runtime with CUDA!")
         }
 
         ort::ExecutionProvider::register(&cuda, &builder)?;
@@ -2027,6 +2031,7 @@ impl<'a> Ddddocr<'a> {
     }
 }
 
+// cargo test --no-default-features --features download-binaries
 #[cfg(test)]
 mod tests {
     use image::Pixel;
@@ -2035,7 +2040,7 @@ mod tests {
 
     fn read_image(path: &str) -> Vec<u8> {
         std::fs::read(path).unwrap_or_else(|e| {
-            panic!("Failed to read image {}: {}", path, e);
+            panic!("failed to read image {}: {}", path, e);
         })
     }
 
@@ -2229,5 +2234,16 @@ mod tests {
         let result =
             crate::slide_comparison(read_image("image/c.jpg"), read_image("image/d.jpg")).unwrap();
         println!("{:?}", result);
+    }
+
+    #[test]
+    fn info() {
+        println!(
+            "current_dir: {}",
+            std::env::current_dir().unwrap().display()
+        );
+
+        #[cfg(not(feature = "inline-model"))]
+        println!("not feature inline-model");
     }
 }

@@ -500,6 +500,10 @@ async fn main() {
         .with_ansi(enable_ansi_support().is_ok())
         .init();
 
+    if !(args.ocr || args.old) && !args.det && !args.slide {
+        panic!("no enabled features, run with `--help` to see all available features");
+    }
+
     init_ocr(&args);
 
     if args.slide {
@@ -512,7 +516,9 @@ async fn main() {
 
     let mut router = Router::new();
 
-    router = router.push(Router::with_path("/status").get(route_status));
+    router = router
+        .hoop(salvo::prelude::Logger::new())
+        .push(Router::with_path("/status").get(route_status));
 
     if args.ocr || args.old {
         router = router.push(Router::with_path("/ocr").post(route_ocr));
@@ -568,6 +574,7 @@ fn ocr_charset_range(args: &Args) -> Option<CharsetRange> {
 #[cfg(feature = "inline-model")]
 fn init_ocr(args: &Args) {
     let ocr_charset_range = ocr_charset_range(args);
+
     if args.ocr {
         let mut ddddocr = ddddocr_classification().unwrap();
 
@@ -592,6 +599,7 @@ fn init_ocr(args: &Args) {
 
     if args.det {
         DET.set(ddddocr_detection().unwrap()).unwrap();
+
         info!("det enabled successfully");
     }
 }
@@ -601,7 +609,9 @@ fn init_ocr(args: &Args) {
     use std::fs::{read, read_to_string};
     use std::path::PathBuf;
     use std::str::FromStr;
+
     let ocr_charset_range = ocr_charset_range(args);
+
     if args.ocr || args.old {
         let mut path = PathBuf::from(args.ocr_path.clone());
 

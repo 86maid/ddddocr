@@ -1,6 +1,6 @@
 [package]
 name = "ddddocr"
-version = "0.4.2"
+version = "1.0.0"
 edition = "2021"
 
 [features]
@@ -46,7 +46,16 @@ sha256 = "1.6"
 base64 = "0.22"
 
 # web 框架
-salvo = { version = "0.85", features = ["oapi", "anyhow", "rustls", "acme"] }
+salvo = { version = "0.85", features = [
+  "oapi",
+  "anyhow",
+  "rustls",
+  "acme",
+  "logging",
+] }
+salvo_extra = { version = "0.85.0", default-features = false, features = [
+  "logging",
+] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 
