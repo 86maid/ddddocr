@@ -5,6 +5,7 @@ use ddddocr::*;
 use enable_ansi_support::enable_ansi_support;
 use lru::LruCache;
 use rmcp::model::CallToolResult;
+use rmcp::model::ClientRequest;
 use rmcp::model::Content;
 use rmcp::model::ErrorCode;
 use rmcp::model::JsonRpcError;
@@ -400,19 +401,17 @@ async fn route_status(res: &mut Response) {
 
 #[handler]
 async fn route_mcp(
-    req_body: JsonBody<JsonRpcRequest<rmcp::model::ClientRequest>>,
+    req_body: JsonBody<JsonRpcRequest<ClientRequest>>,
     depot: &mut Depot,
     res: &mut Response,
     ctrl: &mut FlowCtrl,
 ) -> anyhow::Result<()> {
     match &req_body.request {
-        rmcp::model::ClientRequest::InitializeRequest(_) => {
+        ClientRequest::InitializeRequest(_) => {
             res.render(Text::Json(include_str!("../initialize.json")))
         }
-        rmcp::model::ClientRequest::ListToolsRequest(_) => {
-            res.render(Text::Json(include_str!("../list.json")))
-        }
-        rmcp::model::ClientRequest::CallToolRequest(v) => {
+        ClientRequest::ListToolsRequest(_) => res.render(Text::Json(include_str!("../list.json"))),
+        ClientRequest::CallToolRequest(v) => {
             match v.params.name.as_ref() {
                 "ocr" | "det" | "slide-match" | "slide-comparison" => {
                     let mut req = salvo::Request::new();
