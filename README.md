@@ -309,7 +309,9 @@ Options:
       --address <ADDRESS>
           监听地址。 [default: 0.0.0.0:8000]
       --mcp
-          mcp 协议支持。
+          mcp 协议支持，与 only_mcp 互斥。
+      --only-mcp
+          仅开启 mcp 协议，不开启普通路由，与 mcp 互斥。
       --ocr
           开启内容识别，与 old 互斥。
       --old
@@ -319,8 +321,7 @@ Options:
       --slide
           开启滑块和坑位识别。
       --ocr-charset-range <OCR_CHARSET_RANGE>
-          全局默认字符集，用于概率识别， 如果 API 未提供字符集，则使用此参数， 当值为 0~7 时，表示选择内置字符集， 其他值表示自定义字符集，例如 "0123456789+-x/="， 如果未设置，则使用
-完整字符集，不做限制。
+          全局默认字符集，用于概率识别， 如果 API 未提供字符集，则使用此参数， 当值为 0~7 时，表示选择内置字符集， 其他值表示自定义字符集，例如 "0123456789+-x/="， 如果未设置，则使用完整字符集，不做限制。
       --ocr-path <OCR_PATH>
           内容识别模型以及字符集路径， 如果你开启了 features 的 inline-model 选项（默认开启），则不用管这个选项，除非你想使用自定义模型， 模型 model/common.onnx 和字符集 model/common.json 要同名。 [default: model/common.onnx]
       --det-path <DET_PATH>
