@@ -4,6 +4,15 @@ use clap::Parser;
 use ddddocr::*;
 use enable_ansi_support::enable_ansi_support;
 use lru::LruCache;
+use rmcp::model::CallToolResult;
+use rmcp::model::Content;
+use rmcp::model::ErrorCode;
+use rmcp::model::JsonRpcError;
+use rmcp::model::JsonRpcRequest;
+use rmcp::model::JsonRpcResponse;
+use rmcp::model::JsonRpcVersion2_0;
+use rmcp::model::NumberOrString;
+use rmcp::ErrorData;
 use salvo::catcher::Catcher;
 use salvo::http::request;
 use salvo::http::ReqBody;
@@ -12,33 +21,45 @@ use salvo::oapi::extract::JsonBody;
 use salvo::prelude::*;
 use serde::Deserialize;
 use serde::Serialize;
+use serde_json::Value;
 use std::num::NonZero;
 use std::sync::LazyLock;
 use std::sync::OnceLock;
 use tokio::sync::Mutex;
 use tokio::task::spawn_blocking;
 use tracing::info;
+use tracing::warn;
 
 static ARGS: OnceLock<Args> = OnceLock::new();
 static OCR: OnceLock<Ddddocr> = OnceLock::new();
 static DET: OnceLock<Ddddocr> = OnceLock::new();
 static CACHE: LazyLock<Mutex<LruCache<String, Vec<String>>>> =
-    LazyLock::new(|| Mutex::new(LruCache::new(NonZero::new(10).unwrap())));
+    LazyLock::new(|| Mutex::new(LruCache::new(NonZero::new(64).unwrap())));
 
 #[derive(Parser, Debug, Clone)]
-#[clap(group(
-    ArgGroup::new("config")
-        .args(&["ocr", "old"])
-        .multiple(false)
+#[clap(
+    group(
+        ArgGroup::new("ocr_old")
+            .args(&["ocr", "old"])
+            .multiple(false)
+    ),
+    group(
+        ArgGroup::new("mcp_only_mcp")
+            .args(&["mcp", "only_mcp"])
+            .multiple(false)
 ))]
 struct Args {
     /// 监听地址。
     #[arg(long, default_value_t = { "0.0.0.0:8000".to_string() })]
     address: String,
 
-    /// mcp 协议支持。
+    /// mcp 协议支持，与 only_mcp 互斥。
     #[arg(long)]
     mcp: bool,
+
+    /// 仅开启 mcp 协议，不开启普通路由，与 mcp 互斥。
+    #[arg(long)]
+    only_mcp: bool,
 
     /// 开启内容识别，与 old 互斥。
     #[arg(long)]
@@ -98,7 +119,7 @@ struct OCRRequest {
     charset_range: Option<String>,
 
     /// 颜色过滤，例如 `red` 或 `["red", "blue"]` 或 `[[[0, 50, 50], [10, 255, 255]]]`。
-    color_filter: Option<serde_json::Value>,
+    color_filter: Option<Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
@@ -178,18 +199,6 @@ struct APIResponse<T> {
     code: u16,
     msg: String,
     data: Option<T>,
-}
-
-#[derive(Debug, serde::Serialize, serde::Deserialize, ToSchema)]
-struct McpRequest {
-    tool_name: String,
-    input: serde_json::Value,
-}
-
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub struct McpResponse {
-    output: Option<serde_json::Value>,
-    error: Option<String>,
 }
 
 #[endpoint(responses((status_code = 200, body = APIResponse<OCRResponse>)))]
@@ -355,7 +364,7 @@ async fn route_status(res: &mut Response) {
     let args = ARGS.get().unwrap();
     let mut enabled_features = Vec::new();
 
-    if args.ocr {
+    if args.ocr || args.old {
         enabled_features.push("ocr".to_string());
     }
 
@@ -365,6 +374,14 @@ async fn route_status(res: &mut Response) {
 
     if args.slide {
         enabled_features.push("slide".to_string());
+    };
+
+    if args.mcp {
+        enabled_features.push("mcp".to_string());
+    };
+
+    if args.only_mcp {
+        enabled_features.push("only_mcp".to_string());
     };
 
     let response = StatusResponse {
@@ -381,102 +398,111 @@ async fn route_status(res: &mut Response) {
     res.render(Json(response));
 }
 
-#[endpoint(responses((status_code = 200)))]
-async fn route_mcp_capabilities(res: &mut Response) {
-    res.render(Text::Json(include_str!("../capabilities.json")));
-}
-
-#[endpoint(responses((status_code = 200, body = McpResponse)))]
-async fn route_mcp_call(
-    req_body: JsonBody<McpRequest>,
+#[handler]
+async fn route_mcp(
+    req_body: JsonBody<JsonRpcRequest<rmcp::model::ClientRequest>>,
     depot: &mut Depot,
     res: &mut Response,
     ctrl: &mut FlowCtrl,
-) {
-    match req_body.tool_name.as_str() {
-        "ocr" | "det" | "slide-match" | "slide-comparison" => {
-            let mut req = salvo::Request::new();
+) -> anyhow::Result<()> {
+    match &req_body.request {
+        rmcp::model::ClientRequest::InitializeRequest(_) => {
+            res.render(Text::Json(include_str!("../initialize.json")))
+        }
+        rmcp::model::ClientRequest::ListToolsRequest(_) => {
+            res.render(Text::Json(include_str!("../list.json")))
+        }
+        rmcp::model::ClientRequest::CallToolRequest(v) => {
+            match v.params.name.as_ref() {
+                "ocr" | "det" | "slide-match" | "slide-comparison" => {
+                    let mut req = salvo::Request::new();
 
-            req.add_header("content-type", "application/json", true)
-                .unwrap();
+                    req.add_header("content-type", "application/json", true)?;
 
-            req.replace_body(ReqBody::Once(bytes::Bytes::from(
-                req_body.input.to_string(),
-            )));
+                    req.replace_body(ReqBody::Once(bytes::Bytes::from(
+                        serde_json::to_value(v.params.arguments.clone())?.to_string(),
+                    )));
 
-            let req = &mut req;
+                    let req = &mut req;
 
-            let args = ARGS.get().unwrap();
+                    let args = ARGS.get().unwrap();
 
-            match req_body.tool_name.as_str() {
-                "ocr" if args.ocr => route_ocr.handle(req, depot, res, ctrl).await,
-                "det" if args.det => route_det.handle(req, depot, res, ctrl).await,
-                "slide-match" if args.slide => {
-                    route_slide_match.handle(req, depot, res, ctrl).await
-                }
-                "slide-comparison" if args.slide => {
-                    route_slide_comparison.handle(req, depot, res, ctrl).await
-                }
-                v => {
-                    res.render(Json(McpResponse {
-                        output: None,
-                        error: Some(format!("tool not enabled: {}", v)),
-                    }));
-                    return;
-                }
-            };
+                    match v.params.name.as_ref() {
+                        "ocr" if args.ocr => route_ocr.handle(req, depot, res, ctrl).await,
+                        "det" if args.det => route_det.handle(req, depot, res, ctrl).await,
+                        "slide-match" if args.slide => {
+                            route_slide_match.handle(req, depot, res, ctrl).await
+                        }
+                        "slide-comparison" if args.slide => {
+                            route_slide_comparison.handle(req, depot, res, ctrl).await
+                        }
+                        v => {
+                            res.render(Json(JsonRpcError {
+                                jsonrpc: JsonRpcVersion2_0,
+                                id: NumberOrString::Number(0),
+                                error: ErrorData::internal_error(
+                                    format!(
+                                        "the tool exists, but the server is not enabled: {}",
+                                        v
+                                    ),
+                                    None,
+                                ),
+                            }));
 
-            match res.take_body() {
-                ResBody::Once(v) => {
-                    let result =
-                        serde_json::from_slice::<APIResponse<serde_json::Value>>(&v).unwrap();
+                            return Ok(());
+                        }
+                    };
 
-                    if result.code == 200 {
-                        res.render(Json(McpResponse {
-                            output: result.data,
-                            error: None,
-                        }));
-                    } else {
-                        res.render(Json(McpResponse {
-                            output: None,
-                            error: Some(result.msg),
-                        }));
+                    match res.take_body() {
+                        ResBody::Once(v) => {
+                            let result = serde_json::from_slice::<APIResponse<Value>>(&v)?;
+
+                            if result.code == 200 {
+                                res.render(Json(JsonRpcResponse {
+                                    jsonrpc: JsonRpcVersion2_0,
+                                    id: NumberOrString::Number(0),
+                                    result: CallToolResult::success(vec![Content::text(
+                                        result.data.unwrap().to_string(),
+                                    )]),
+                                }));
+                            } else {
+                                res.render(Json(JsonRpcResponse {
+                                    jsonrpc: JsonRpcVersion2_0,
+                                    id: NumberOrString::Number(0),
+                                    result: CallToolResult::error(vec![Content::text(result.msg)]),
+                                }));
+                            }
+                        }
+                        ResBody::Error(v) => {
+                            res.render(Json(JsonRpcResponse {
+                                jsonrpc: JsonRpcVersion2_0,
+                                id: NumberOrString::Number(0),
+                                result: CallToolResult::error(vec![Content::text(v.to_string())]),
+                            }));
+                        }
+                        _ => anyhow::bail!("take_body"),
                     }
                 }
-                ResBody::Error(v) => {
-                    res.render(Json(McpResponse {
-                        output: None,
-                        error: Some(v.to_string()),
+                v => {
+                    res.render(Json(JsonRpcError {
+                        jsonrpc: JsonRpcVersion2_0,
+                        id: NumberOrString::Number(0),
+                        error: ErrorData::invalid_params(
+                            format!("the tool does not exist: {}", v),
+                            None,
+                        ),
                     }));
                 }
-                _ => {
-                    res.render(Json(McpResponse {
-                        output: None,
-                        error: Some("404 Not Found".to_string()),
-                    }));
-                }
-            }
+            };
         }
-        v => {
-            res.render(Json(McpResponse {
-                output: None,
-                error: Some(format!("invalid tool name: {}", v)),
-            }));
-        }
-    };
-}
+        v => res.render(Json(JsonRpcError {
+            jsonrpc: JsonRpcVersion2_0,
+            id: NumberOrString::Number(0),
+            error: ErrorData::new(ErrorCode::METHOD_NOT_FOUND, v.method().to_string(), None),
+        })),
+    }
 
-#[endpoint(responses((status_code = 200)))]
-async fn route_mcp_info(res: &mut Response) {
-    res.render(Json(serde_json::json!({
-        "protocol": "MCP",
-        "version": "1.0.0",
-        "description": "DDDDOCR MCP 协议支持",
-        "endpoints": {
-            "capabilities": "/mcp/capabilities",
-            "call": "/mcp/call"
-        }
-    })));
+    Ok(())
 }
 
 #[handler]
@@ -487,22 +513,29 @@ fn default_error_handler(res: &mut Response) {
             msg: v.to_string(),
             data: <Option<String>>::None,
         }));
+    } else {
+        res.render(Text::Plain(""));
     }
 }
 
 #[tokio::main]
 async fn main() {
-    let args = Args::parse();
-
-    ARGS.set(args.clone()).unwrap();
+    let mut args = Args::parse();
 
     tracing_subscriber::fmt()
         .with_ansi(enable_ansi_support().is_ok())
         .init();
 
     if !(args.ocr || args.old) && !args.det && !args.slide {
-        panic!("no enabled features, run with `--help` to see all available features");
+        warn!("no enabled features, default enabled all features");
+
+        args.ocr = true;
+        args.old = true;
+        args.det = true;
+        args.slide = true;
     }
+
+    ARGS.set(args.clone()).unwrap();
 
     init_ocr(&args);
 
@@ -514,31 +547,32 @@ async fn main() {
         info!("mcp enabled successfully");
     }
 
+    if args.only_mcp {
+        info!("only mcp enabled successfully");
+    }
+
     let mut router = Router::new();
 
     router = router
         .hoop(salvo::prelude::Logger::new())
         .push(Router::with_path("/status").get(route_status));
 
-    if args.ocr || args.old {
+    if (args.ocr || args.old) && !args.only_mcp {
         router = router.push(Router::with_path("/ocr").post(route_ocr));
     }
 
-    if args.det {
+    if args.det && !args.only_mcp {
         router = router.push(Router::with_path("/det").post(route_det));
     }
 
-    if args.slide {
+    if args.slide && !args.only_mcp {
         router = router
             .push(Router::with_path("/slide-match").post(route_slide_match))
             .push(Router::with_path("/slide-comparison").post(route_slide_comparison));
     }
 
-    if args.mcp {
-        router = router
-            .push(Router::with_path("/mcp/capabilities").get(route_mcp_capabilities))
-            .push(Router::with_path("/mcp/call").post(route_mcp_call))
-            .push(Router::with_path("/mcp/").get(route_mcp_info))
+    if args.mcp || args.only_mcp {
+        router = router.push(Router::with_path("/mcp").post(route_mcp))
     }
 
     let docs = OpenApi::new("ddddocr api", "0.0.1").merge_router(&router);

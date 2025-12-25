@@ -1,0 +1,210 @@
+{
+  "jsonrpc": "2.0",
+  "id": 0,
+  "result": [
+    {
+      "name": "ocr",
+      "description": "Perform OCR (Optical Character Recognition) on the provided image to extract text.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "description": "The image to recognize, base64 encoded."
+          },
+          "png_fix": {
+            "type": "boolean",
+            "description": "If true, supports PNG images with transparent black backgrounds."
+          },
+          "probability": {
+            "type": "boolean",
+            "description": "Whether to return probability information."
+          },
+          "charset_range": {
+            "type": "string",
+            "description": "Limits the character range for this OCR. If '0' to '7', corresponds to built-in charsets; otherwise, a custom charset like '0123456789+-x/='."
+          },
+          "color_filter": {
+            "description": "Color filter, e.g., 'red' or ['red', 'blue'] or [[[0, 50, 50], [10, 255, 255]]].",
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 3,
+                    "maxItems": 3
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "required": [
+          "image"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "The recognized text."
+          },
+          "probability": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            },
+            "description": "Probability information."
+          }
+        },
+        "required": [
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "det",
+      "description": "Perform object detection on the provided image to find bounding boxes.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "description": "The image to detect objects in, base64 encoded."
+          }
+        },
+        "required": [
+          "image"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "bboxes": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              },
+              "minItems": 4,
+              "maxItems": 4
+            },
+            "description": "List of bounding boxes [[x1, y1, x2, y2], ...]."
+          }
+        },
+        "required": [
+          "bboxes"
+        ]
+      }
+    },
+    {
+      "name": "slide_match",
+      "description": "Match the slider (target) image to the background image for captcha solving.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "target_image": {
+            "type": "string",
+            "description": "The slider image, base64 encoded."
+          },
+          "background_image": {
+            "type": "string",
+            "description": "The background image, base64 encoded."
+          },
+          "simple_target": {
+            "type": "boolean",
+            "description": "Whether it is a simple slider."
+          }
+        },
+        "required": [
+          "target_image",
+          "background_image"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "minItems": 4,
+            "maxItems": 4,
+            "description": "Target position [x1, y1, x2, y2]."
+          },
+          "target_x": {
+            "type": "integer",
+            "description": "X offset of the transparent part."
+          },
+          "target_y": {
+            "type": "integer",
+            "description": "Y offset of the transparent part."
+          }
+        },
+        "required": [
+          "target",
+          "target_x",
+          "target_y"
+        ]
+      }
+    },
+    {
+      "name": "slide_comparison",
+      "description": "Compare the slider and background to find the gap position.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "target_image": {
+            "type": "string",
+            "description": "The slider image, base64 encoded."
+          },
+          "background_image": {
+            "type": "string",
+            "description": "The background image, base64 encoded."
+          }
+        },
+        "required": [
+          "target_image",
+          "background_image"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "integer",
+            "description": "X offset of the gap."
+          },
+          "y": {
+            "type": "integer",
+            "description": "Y offset of the gap."
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ]
+      }
+    }
+  ]
+}

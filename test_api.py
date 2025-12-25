@@ -2,40 +2,14 @@ import json
 import base64
 import requests
 
-base_url = "http://127.0.0.1:8000"
-
-image_path = "./image/4.png"
-
-slide_match_target_path = "./image/a.png"
-slide_match_background_path = "./image/b.png"
-
-slide_comparison_target_path = "./image/c.jpg"
-slide_comparison_background_path = "./image/d.jpg"
-
-
-def build_curl(method, url, json_data=None):
-    parts = []
-    parts.append(f'curl -X {method.upper()} "{url}"')
-    if json_data is not None:
-        parts.append('-H "Content-Type: application/json"')
-        data = {}
-        for k, v in json_data.items():
-            if "image" in k:
-                data[k] = "base64 image"
-            else:
-                data[k] = v
-        json_str = json.dumps(data, ensure_ascii=False)
-        parts.append(f"-d '{json_str}'")
-    return "\n       ".join(parts)
-
 
 def test_routes(
-    base_url,
-    image_path,
-    slide_match_target_path,
-    slide_match_background_path,
-    slide_comparison_target_path,
-    slide_comparison_background_path,
+    base_url="http://127.0.0.1:8000",
+    image_path="./image/4.png",
+    slide_match_target_path="./image/a.png",
+    slide_match_background_path="./image/b.png",
+    slide_comparison_target_path="./image/c.jpg",
+    slide_comparison_background_path="./image/d.jpg",
 ):
     image_b64 = base64.b64encode(open(image_path, "rb").read()).decode()
     slide_target_b64 = base64.b64encode(
@@ -130,7 +104,73 @@ def test_routes(
                 "background_image": cmp_background_b64,
             },
         },
+        {
+            "method": "post",
+            "path": "/mcp",
+            "json": {
+                "jsonrpc": "2.0",
+                "id": 0,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {},
+                    "clientInfo": {
+                        "name": "ddddocr",
+                        "version": "1.0.0",
+                    },
+                },
+            },
+        },
+        {
+            "method": "post",
+            "path": "/mcp",
+            "json": {
+                "jsonrpc": "2.0",
+                "id": 0,
+                "method": "tools/list",
+                "params": {},
+            },
+        },
+        {
+            "method": "post",
+            "path": "/mcp",
+            "json": {
+                "jsonrpc": "2.0",
+                "id": 0,
+                "method": "tools/call",
+                "params": {
+                    "name": "ocr",
+                    "arguments": {"image": image_b64, "color_filter": "green"},
+                },
+            },
+        },
     ]
+
+    def build_curl(method, url, json_data=None):
+        def replace_image(data):
+            if isinstance(data, dict):
+                new_data = {}
+                for k, v in data.items():
+                    if "image" in k.lower():
+                        new_data[k] = "base64 image"
+                    else:
+                        new_data[k] = replace_image(v)
+                return new_data
+            elif isinstance(data, list):
+                return [replace_image(item) for item in data]
+            else:
+                return data
+
+        parts = []
+        parts.append(f'curl -X {method.upper()} "{url}"')
+
+        if json_data is not None:
+            parts.append('-H "Content-Type: application/json"')
+            data = replace_image(json_data)
+            json_str = json.dumps(data, ensure_ascii=False)
+            parts.append(f"-d '{json_str}'")
+
+        return "\n       ".join(parts)
 
     for route in routes:
         url = f"{base_url}{route['path']}"
@@ -151,11 +191,4 @@ def test_routes(
 
 
 if __name__ == "__main__":
-    test_routes(
-        base_url,
-        image_path,
-        slide_match_target_path,
-        slide_match_background_path,
-        slide_comparison_target_path,
-        slide_comparison_background_path,
-    )
+    test_routes()

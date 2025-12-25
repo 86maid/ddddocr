@@ -1,0 +1,16 @@
+{
+  "jsonrpc": "2.0",
+  "id": 0,
+  "result": {
+    "protocolVersion": "2025-11-25",
+    "capabilities": {
+      "tools": {
+        "listChanged": false
+      }
+    },
+    "serverInfo": {
+      "name": "ddddocr",
+      "version": "1.0.0"
+    }
+  }
+}
