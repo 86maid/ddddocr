@@ -59,8 +59,8 @@ a simple OCR API server, very easy to deploy。
   - [API 说明](#api-说明)
   - [API 测试例子，完整的测试请看 `test_api.py` 文件](#api-测试例子完整的测试请看-test_apipy-文件)
   - [MCP 协议支持](#mcp-协议支持)
-    - [mcp 请求](#mcp-请求)
-    - [mcp 响应](#mcp-响应)
+    - [工具调用请求](#工具调用请求)
+    - [工具调用响应](#工具调用响应)
 - [疑难杂症](#疑难杂症)
 
 # 环境支持
@@ -396,32 +396,40 @@ ddddocr.exe --help
 
 本项目支持 MCP（Model Context Protocol）协议，使 AI Agent 能够直接调用 ddddocr 服务。
 
-- 能力声明：`GET /mcp/capabilities`
-- 工具调用：`POST /mcp/call`
+版本：2025-11-25
 
-### mcp 请求
+端点：`POST /mcp`
+
+方法：`initialize` `tools/list` `tools/call`  
+
+### 工具调用请求
 
 ```json
 {
-  "tool_name": "ocr",
-  "input": {
-    "image": "base64 image",
-    "png_fix": true,
-    "probability": false,
-    "charset_range": "0123456789",
-    "color_filter": ["red", "blue"]
-  }
-}
+    "jsonrpc": "2.0",
+    "id": 0,
+    "method": "tools/call",
+    "params": {
+        "name": "ocr",
+        "arguments": {"image": image_b64, "color_filter": "green"},
+    },
+},
 ```
-### mcp 响应
+### 工具调用响应
 
 ```json
 {
-  "output": {
-    "text": "123456",
-    "probability": null
-  },
-  "error": null
+  "jsonrpc": "2.0",
+  "id": 0,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"probability\":null,\"text\":\"等于？\"}"
+      }
+    ],
+    "isError": false
+  }
 }
 ```
 
