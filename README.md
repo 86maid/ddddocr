@@ -412,9 +412,9 @@ ddddocr.exe --help
     "method": "tools/call",
     "params": {
         "name": "ocr",
-        "arguments": {"image": image_b64, "color_filter": "green"},
+        "arguments": {"image": "image_b64", "color_filter": "green"},
     },
-},
+}
 ```
 ### 工具调用响应
 
