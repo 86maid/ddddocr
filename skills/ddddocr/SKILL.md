@@ -1,5 +1,5 @@
 ---
-name: ddddocr-mcp
+name: ddddocr
 description: "DDDDOCR OCR recognition service with MCP protocol support. Provides optical character recognition, object detection, and slide matching capabilities. Use for: Recognizing text from captcha images, Detecting objects/text regions in images, Matching slide positions for verification codes, Performing any OCR-related tasks through MCP protocol."
 ---
 
