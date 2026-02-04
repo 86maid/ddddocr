@@ -413,7 +413,7 @@ async fn route_mcp(
         ClientRequest::ListToolsRequest(_) => res.render(Text::Json(include_str!("../list.json"))),
         ClientRequest::CallToolRequest(v) => {
             match v.params.name.as_ref() {
-                "ocr" | "det" | "slide-match" | "slide-comparison" => {
+                "ocr" | "det" | "slide_match" | "slide_comparison" => {
                     let mut req = salvo::Request::new();
 
                     req.add_header("content-type", "application/json", true)?;
@@ -429,10 +429,10 @@ async fn route_mcp(
                     match v.params.name.as_ref() {
                         "ocr" if args.ocr => route_ocr.handle(req, depot, res, ctrl).await,
                         "det" if args.det => route_det.handle(req, depot, res, ctrl).await,
-                        "slide-match" if args.slide => {
+                        "slide_match" if args.slide => {
                             route_slide_match.handle(req, depot, res, ctrl).await
                         }
-                        "slide-comparison" if args.slide => {
+                        "slide_comparison" if args.slide => {
                             route_slide_comparison.handle(req, depot, res, ctrl).await
                         }
                         v => {
@@ -525,7 +525,7 @@ async fn main() {
         .with_ansi(enable_ansi_support().is_ok())
         .init();
 
-    if !(args.ocr || args.old) && !args.det && !args.slide {
+    if !(args.ocr || args.old) && !args.det && !args.slide && (args.mcp || args.only_mcp) {
         warn!("no enabled features, default enabled all features");
 
         args.ocr = true;
@@ -566,8 +566,8 @@ async fn main() {
 
     if args.slide && !args.only_mcp {
         router = router
-            .push(Router::with_path("/slide-match").post(route_slide_match))
-            .push(Router::with_path("/slide-comparison").post(route_slide_comparison));
+            .push(Router::with_path("/slide_match").post(route_slide_match))
+            .push(Router::with_path("/slide_comparison").post(route_slide_comparison));
     }
 
     if args.mcp || args.only_mcp {

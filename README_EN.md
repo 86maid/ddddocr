@@ -335,7 +335,7 @@ Options:
 ## Running Examples
 ```sh
 # Start all functions
-ddddocr.exe --address 0.0.0.0:8000 --ocr --det --slide
+ddddocr.exe --address 0.0.0.0:8000 --ocr --det --slide --mcp
 
 # View all options
 ddddocr.exe --help

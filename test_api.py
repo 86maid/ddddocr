@@ -2,7 +2,6 @@ import json
 import base64
 import requests
 
-
 def test_routes(
     base_url="http://127.0.0.1:8000",
     image_path="./image/4.png",
@@ -80,7 +79,7 @@ def test_routes(
         {"method": "post", "path": "/det", "json": {"image": image_b64}},
         {
             "method": "post",
-            "path": "/slide-match",
+            "path": "/slide_match",
             "json": {
                 "target_image": slide_target_b64,
                 "background_image": slide_background_b64,
@@ -89,7 +88,7 @@ def test_routes(
         },
         {
             "method": "post",
-            "path": "/slide-match",
+            "path": "/slide_match",
             "json": {
                 "target_image": slide_target_b64,
                 "background_image": slide_background_b64,
@@ -98,7 +97,7 @@ def test_routes(
         },
         {
             "method": "post",
-            "path": "/slide-comparison",
+            "path": "/slide_comparison",
             "json": {
                 "target_image": cmp_target_b64,
                 "background_image": cmp_background_b64,

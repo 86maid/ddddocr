@@ -335,7 +335,7 @@ Options:
 ## 运行例子
 ```sh
 # 启动所有功能
-ddddocr.exe --address 0.0.0.0:8000 --ocr --det --slide
+ddddocr.exe --address 0.0.0.0:8000 --ocr --det --slide --mcp
 
 # 查看所有选项
 ddddocr.exe --help
