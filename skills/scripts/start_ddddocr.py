@@ -36,7 +36,7 @@ def get_platform_info():
     return None
 
 
-def get_latest_release_url(filename):
+def get_latest_release_info(filename):
     releases_url = "https://api.github.com/repos/86maid/ddddocr/releases/latest"
     
     try:
@@ -45,14 +45,45 @@ def get_latest_release_url(filename):
             import json
             release = json.loads(data)
             
+            version = release.get("tag_name", "")
+            
             for asset in release.get("assets", []):
                 name = asset.get("name", "")
                 if name == filename:
-                    return asset.get("browser_download_url")
+                    return asset.get("browser_download_url"), version
     except Exception as e:
         print(f"Error fetching release info: {e}", file=sys.stderr)
     
+    return None, None
+
+
+def get_latest_release_url(filename):
+    url, _ = get_latest_release_info(filename)
+    return url
+
+
+def get_version_file_path(cache_dir):
+    return os.path.join(cache_dir, ".version")
+
+
+def get_cached_version(cache_dir):
+    version_file = get_version_file_path(cache_dir)
+    if os.path.exists(version_file):
+        try:
+            with open(version_file, 'r') as f:
+                return f.read().strip()
+        except:
+            pass
     return None
+
+
+def save_version(cache_dir, version):
+    version_file = get_version_file_path(cache_dir)
+    try:
+        with open(version_file, 'w') as f:
+            f.write(version)
+    except Exception as e:
+        print(f"Warning: Could not save version info: {e}", file=sys.stderr)
 
 
 def download_and_extract(url, dest_dir):
@@ -121,18 +152,31 @@ def main():
     cache_dir = os.path.join(os.path.expanduser("~"), ".ddddocr_cache")
     exe_path = find_executable(cache_dir)
     
+    url, latest_version = get_latest_release_info(filename)
+    
+    if not url:
+        print(f"Error: Could not find release for {filename}", file=sys.stderr)
+        return 1
+    
+    need_download = False
+    
     if not exe_path:
-        print(f"Downloading DDDDOCR: {filename}...")
-        url = get_latest_release_url(filename)
-        
-        if not url:
-            print(f"Error: Could not find release for {filename}", file=sys.stderr)
-            return 1
-        
-        os.makedirs(cache_dir, exist_ok=True)
-        
+        need_download = True
+        print(f"Downloading DDDDOCR: {filename} (v{latest_version})...")
+    else:
+        cached_version = get_cached_version(cache_dir)
+        if cached_version != latest_version:
+            need_download = True
+            print(f"Updating DDDDOCR: {filename} (v{cached_version} -> v{latest_version})...")
+            shutil.rmtree(cache_dir)
+            os.makedirs(cache_dir, exist_ok=True)
+        else:
+            print(f"Using cached DDDDOCR: v{latest_version}")
+    
+    if need_download:
         print(f"Downloading from: {url}")
         download_and_extract(url, cache_dir)
+        save_version(cache_dir, latest_version)
         
         exe_path = find_executable(cache_dir)
         
