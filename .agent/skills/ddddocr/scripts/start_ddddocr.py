@@ -12,6 +12,8 @@ import time
 import stat
 from pathlib import Path
 
+import requests
+
 
 def get_platform_info():
     system = platform.system().lower()
@@ -160,20 +162,17 @@ def set_executable_permission(exe_path):
                 | stat.S_IXGRP
                 | stat.S_IROTH
                 | stat.S_IXOTH,
-            )  # 0o755
+            )
         except Exception as e:
             print(f"Warning: Could not set executable permission: {e}", file=sys.stderr)
 
 
 def check_running(host, port):
     try:
-        import socket
-
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.settimeout(1)
-            result = s.connect_ex((host, port))
-            return result == 0
-    except:
+        url = f"http://{host}:{port}/status"
+        response = requests.get(url, timeout=1)
+        return response.status_code == 200
+    except requests.RequestException:
         return False
 
 
@@ -245,7 +244,7 @@ def main():
         action = (
             "Downloading"
             if not exe_path
-            else f"Updating (v{cached_version} -> v{latest_version})"
+            else f"Updating ({cached_version} -> {latest_version})"
         )
         print(f"{action} DDDDOCR: {filename}...")
 
@@ -257,11 +256,7 @@ def main():
             new_exe_path = find_executable(temp_dir)
             if not new_exe_path:
                 raise Exception("Executable not found after extraction")
-
-            # 设置权限
             set_executable_permission(new_exe_path)
-
-            # 替换旧缓存
             shutil.rmtree(cache_dir, ignore_errors=True)
             shutil.move(temp_dir, cache_dir)
             exe_path = find_executable(cache_dir)
@@ -271,14 +266,13 @@ def main():
         except Exception as e:
             print(f"Error during download/update: {e}", file=sys.stderr)
             shutil.rmtree(temp_dir, ignore_errors=True)
-            # 如果之前有旧版本，保留它
             if cached_version and os.path.exists(cache_dir):
                 exe_path = find_executable(cache_dir)
             else:
                 return 1
     else:
         print(f"Using cached DDDDOCR: v{latest_version}")
-        set_executable_permission(exe_path)  # 确保旧的可执行文件也有权限
+        set_executable_permission(exe_path)
 
     if not exe_path:
         print("Error: Could not find ddddocr executable", file=sys.stderr)
@@ -294,7 +288,6 @@ def main():
     print(f"MCP endpoint: http://{address}:{port}/mcp")
     print(f"API documentation: http://{address}:{port}/docs")
 
-    # 等待服务真正启动
     if not wait_for_service(address, port):
         print("Warning: Service did not start within expected time", file=sys.stderr)
 
