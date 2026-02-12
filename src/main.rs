@@ -525,7 +525,7 @@ async fn main() {
         .with_ansi(enable_ansi_support().is_ok())
         .init();
 
-    if !(args.ocr || args.old) && !args.det && !args.slide && (args.mcp || args.only_mcp) {
+    if !(args.ocr || args.old) && !args.det && !args.slide {
         warn!("no enabled features, default enabled all features");
 
         args.ocr = true;
