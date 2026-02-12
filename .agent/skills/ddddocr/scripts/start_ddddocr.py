@@ -8,27 +8,41 @@ import tarfile
 import zipfile
 import tempfile
 import shutil
+import time
+import stat
 from pathlib import Path
 
 
 def get_platform_info():
     system = platform.system().lower()
     machine = platform.machine().lower()
-    
+
     if system == "windows":
-        arch = "x64" if machine in ("amd64", "x86_64") else "x86" if machine in ("x86", "i386") else None
+        arch = (
+            "x64"
+            if machine in ("amd64", "x86_64")
+            else "x86" if machine in ("x86", "i386") else None
+        )
         if arch == "x64":
             return "x86_64-pc-windows-msvc-inline.zip"
         elif arch == "x86":
             return "i686-pc-windows-msvc-inline.zip"
     elif system == "linux":
-        arch = "arm64" if machine in ("aarch64", "arm64") else "x64" if machine in ("amd64", "x86_64") else None
+        arch = (
+            "arm64"
+            if machine in ("aarch64", "arm64")
+            else "x64" if machine in ("amd64", "x86_64") else None
+        )
         if arch == "arm64":
             return "aarch64-unknown-linux-gnu-inline.zip"
         elif arch == "x64":
-            return "linux-x86_64-inline.zip"
+            return "x86_64-unknown-linux-musl-inline.zip"
     elif system == "darwin":
-        arch = "arm64" if machine in ("aarch64", "arm64") else "x64" if machine in ("amd64", "x86_64") else None
+        arch = (
+            "arm64"
+            if machine in ("aarch64", "arm64")
+            else "x64" if machine in ("amd64", "x86_64") else None
+        )
         if arch == "arm64":
             return "aarch64-apple-darwin-inline.zip"
         elif arch == "x64":
@@ -38,28 +52,24 @@ def get_platform_info():
 
 def get_latest_release_info(filename):
     releases_url = "https://api.github.com/repos/86maid/ddddocr/releases/latest"
-    
+
     try:
         with urllib.request.urlopen(releases_url) as response:
             data = response.read().decode()
             import json
+
             release = json.loads(data)
-            
+
             version = release.get("tag_name", "")
-            
+
             for asset in release.get("assets", []):
                 name = asset.get("name", "")
                 if name == filename:
                     return asset.get("browser_download_url"), version
     except Exception as e:
         print(f"Error fetching release info: {e}", file=sys.stderr)
-    
+
     return None, None
-
-
-def get_latest_release_url(filename):
-    url, _ = get_latest_release_info(filename)
-    return url
 
 
 def get_version_file_path(cache_dir):
@@ -70,7 +80,7 @@ def get_cached_version(cache_dir):
     version_file = get_version_file_path(cache_dir)
     if os.path.exists(version_file):
         try:
-            with open(version_file, 'r') as f:
+            with open(version_file, "r") as f:
                 return f.read().strip()
         except:
             pass
@@ -80,28 +90,54 @@ def get_cached_version(cache_dir):
 def save_version(cache_dir, version):
     version_file = get_version_file_path(cache_dir)
     try:
-        with open(version_file, 'w') as f:
+        with open(version_file, "w") as f:
             f.write(version)
     except Exception as e:
         print(f"Warning: Could not save version info: {e}", file=sys.stderr)
 
 
 def download_and_extract(url, dest_dir):
-    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".tmp")
-    
+    temp_file_path = None
     try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".tmp") as temp_file:
+            temp_file_path = temp_file.name
+
         with urllib.request.urlopen(url) as response:
-            temp_file.write(response.read())
-        
+            total_size = int(response.getheader("Content-Length", 0))
+            block_size = 8192
+            downloaded = 0
+            start_time = time.time()
+
+            with open(temp_file_path, "wb") as out_file:
+                while True:
+                    buffer = response.read(block_size)
+                    if not buffer:
+                        break
+                    out_file.write(buffer)
+                    downloaded += len(buffer)
+
+                    if total_size > 0:
+                        percent = downloaded / total_size * 100
+                        elapsed = time.time() - start_time
+                        speed = downloaded / 1024 / elapsed if elapsed > 0 else 0
+                        print(
+                            f"\rDownloading: {percent:6.2f}% "
+                            f"({downloaded / 1024:.1f}KB/{total_size / 1024:.1f}KB) "
+                            f"Speed: {speed:.1f} KB/s",
+                            end="",
+                            flush=True,
+                        )
+            print()
+
         if url.endswith(".zip"):
-            with zipfile.ZipFile(temp_file.name, 'r') as zip_ref:
+            with zipfile.ZipFile(temp_file_path, "r") as zip_ref:
                 zip_ref.extractall(dest_dir)
         elif url.endswith(".tar.gz") or url.endswith(".tgz"):
-            with tarfile.open(temp_file.name, 'r:gz') as tar_ref:
+            with tarfile.open(temp_file_path, "r:gz") as tar_ref:
                 tar_ref.extractall(dest_dir)
     finally:
-        temp_file.close()
-        os.unlink(temp_file.name)
+        if temp_file_path and os.path.exists(temp_file_path):
+            os.unlink(temp_file_path)
 
 
 def find_executable(directory):
@@ -114,86 +150,154 @@ def find_executable(directory):
     return None
 
 
+def set_executable_permission(exe_path):
+    if platform.system().lower() != "windows":
+        try:
+            os.chmod(
+                exe_path,
+                stat.S_IRWXU
+                | stat.S_IRGRP
+                | stat.S_IXGRP
+                | stat.S_IROTH
+                | stat.S_IXOTH,
+            )  # 0o755
+        except Exception as e:
+            print(f"Warning: Could not set executable permission: {e}", file=sys.stderr)
+
+
 def check_running(host, port):
     try:
         import socket
+
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(1)
             result = s.connect_ex((host, port))
             return result == 0
     except:
         return False
 
 
+def wait_for_service(host, port, timeout=30):
+    print("Waiting for service to start...", end="")
+    for _ in range(timeout):
+        if check_running(host, port):
+            print(" OK")
+            return True
+        time.sleep(1)
+        print(".", end="", flush=True)
+    print(" Timeout")
+    return False
+
+
 def start_ddddocr(exe_path, address="127.0.0.1", port=8000):
-    args = [exe_path, "--address", f"{address}:{port}", "--ocr", "--det", "--slide", "--mcp"]
-    
+    args = [
+        exe_path,
+        "--address",
+        f"{address}:{port}",
+        "--ocr",
+        "--det",
+        "--slide",
+        "--mcp",
+    ]
+
     if platform.system().lower() == "windows":
-        process = subprocess.Popen(args, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
+        process = subprocess.Popen(
+            args, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
+        )
     else:
         process = subprocess.Popen(args, start_new_session=True)
-    
+
     return process
 
 
 def main():
     address = "127.0.0.1"
     port = 8000
-    
+
     if check_running(address, port):
         print(f"DDDDOCR service already running on {address}:{port}")
         print(f"MCP endpoint: http://{address}:{port}/mcp")
         return 0
-    
+
     filename = get_platform_info()
     if not filename:
-        print(f"Error: Unsupported platform {platform.system()} {platform.machine()}", file=sys.stderr)
+        print(
+            f"Error: Unsupported platform {platform.system()} {platform.machine()}",
+            file=sys.stderr,
+        )
         return 1
-    
+
     cache_dir = os.path.join(os.path.expanduser("~"), ".ddddocr_cache")
-    exe_path = find_executable(cache_dir)
-    
+    os.makedirs(cache_dir, exist_ok=True)
+
     url, latest_version = get_latest_release_info(filename)
-    
+
     if not url:
         print(f"Error: Could not find release for {filename}", file=sys.stderr)
         return 1
-    
+
+    exe_path = find_executable(cache_dir)
+    cached_version = get_cached_version(cache_dir) if exe_path else None
+
     need_download = False
-    
-    if not exe_path:
+    if not exe_path or cached_version != latest_version:
         need_download = True
-        print(f"Downloading DDDDOCR: {filename} (v{latest_version})...")
-    else:
-        cached_version = get_cached_version(cache_dir)
-        if cached_version != latest_version:
-            need_download = True
-            print(f"Updating DDDDOCR: {filename} (v{cached_version} -> v{latest_version})...")
-            shutil.rmtree(cache_dir)
-            os.makedirs(cache_dir, exist_ok=True)
-        else:
-            print(f"Using cached DDDDOCR: v{latest_version}")
-    
+        action = (
+            "Downloading"
+            if not exe_path
+            else f"Updating (v{cached_version} -> v{latest_version})"
+        )
+        print(f"{action} DDDDOCR: {filename}...")
+
     if need_download:
         print(f"Downloading from: {url}")
-        download_and_extract(url, cache_dir)
-        save_version(cache_dir, latest_version)
-        
-        exe_path = find_executable(cache_dir)
-        
-        if not exe_path:
-            print("Error: Could not find ddddocr executable after extraction", file=sys.stderr)
-            return 1
-    
+        temp_dir = tempfile.mkdtemp()
+        try:
+            download_and_extract(url, temp_dir)
+            new_exe_path = find_executable(temp_dir)
+            if not new_exe_path:
+                raise Exception("Executable not found after extraction")
+
+            # 设置权限
+            set_executable_permission(new_exe_path)
+
+            # 替换旧缓存
+            shutil.rmtree(cache_dir, ignore_errors=True)
+            shutil.move(temp_dir, cache_dir)
+            exe_path = find_executable(cache_dir)
+            set_executable_permission(exe_path)
+            save_version(cache_dir, latest_version)
+            print("Download and update completed.")
+        except Exception as e:
+            print(f"Error during download/update: {e}", file=sys.stderr)
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            # 如果之前有旧版本，保留它
+            if cached_version and os.path.exists(cache_dir):
+                exe_path = find_executable(cache_dir)
+            else:
+                return 1
+    else:
+        print(f"Using cached DDDDOCR: v{latest_version}")
+        set_executable_permission(exe_path)  # 确保旧的可执行文件也有权限
+
+    if not exe_path:
+        print("Error: Could not find ddddocr executable", file=sys.stderr)
+        return 1
+
     print(f"Executable: {exe_path}")
     print(f"Starting DDDDOCR service on {address}:{port}...")
     print(f"Features: ocr, det, slide, mcp")
-    
+
     process = start_ddddocr(exe_path, address, port)
-    
+
     print(f"Service started with PID: {process.pid}")
     print(f"MCP endpoint: http://{address}:{port}/mcp")
     print(f"API documentation: http://{address}:{port}/docs")
-    
+
+    # 等待服务真正启动
+    if not wait_for_service(address, port):
+        print("Warning: Service did not start within expected time", file=sys.stderr)
+
     return 0
 
 
