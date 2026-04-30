@@ -212,7 +212,6 @@ async fn route_ocr(req: JsonBody<OCRRequest>, res: &mut Response) -> anyhow::Res
     let image = BASE64_STANDARD.decode(&req.image)?;
     let png_fix = req.png_fix.unwrap_or_default();
     let probability = req.probability.unwrap_or_default();
-
     let color_filter = if let Some(v) = req.color_filter.clone() {
         Some(serde_json::from_value::<ColorFilter>(v)?)
     } else {
