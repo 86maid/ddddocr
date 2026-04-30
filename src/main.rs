@@ -5,14 +5,15 @@ use ddddocr::*;
 use enable_ansi_support::enable_ansi_support;
 use lru::LruCache;
 use rmcp::model::CallToolResult;
+use rmcp::model::ClientNotification;
 use rmcp::model::ClientRequest;
 use rmcp::model::Content;
 use rmcp::model::ErrorCode;
 use rmcp::model::JsonRpcError;
+use rmcp::model::JsonRpcNotification;
 use rmcp::model::JsonRpcRequest;
 use rmcp::model::JsonRpcResponse;
 use rmcp::model::JsonRpcVersion2_0;
-use rmcp::model::NumberOrString;
 use rmcp::ErrorData;
 use salvo::catcher::Catcher;
 use salvo::http::request;
@@ -399,13 +400,26 @@ async fn route_status(res: &mut Response) {
     res.render(Json(response));
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+enum JsonRpcRequestOrNotification {
+    Request(JsonRpcRequest<ClientRequest>),
+    Notification(JsonRpcNotification<ClientNotification>),
+}
+
 #[handler]
 async fn route_mcp(
-    req_body: JsonBody<JsonRpcRequest<ClientRequest>>,
+    req_body: JsonBody<JsonRpcRequestOrNotification>,
     depot: &mut Depot,
     res: &mut Response,
     ctrl: &mut FlowCtrl,
 ) -> anyhow::Result<()> {
+    let req_body = if let JsonRpcRequestOrNotification::Request(v) = req_body.into_inner() {
+        v
+    } else {
+        return Ok(());
+    };
+
     match &req_body.request {
         ClientRequest::InitializeRequest(_) => {
             res.render(Text::Json(include_str!("../initialize.json")))
@@ -438,7 +452,7 @@ async fn route_mcp(
                         v => {
                             res.render(Json(JsonRpcError {
                                 jsonrpc: JsonRpcVersion2_0,
-                                id: NumberOrString::Number(0),
+                                id: req_body.id,
                                 error: ErrorData::internal_error(
                                     format!(
                                         "the tool exists, but the server is not enabled: {}",
@@ -459,7 +473,7 @@ async fn route_mcp(
                             if result.code == 200 {
                                 res.render(Json(JsonRpcResponse {
                                     jsonrpc: JsonRpcVersion2_0,
-                                    id: NumberOrString::Number(0),
+                                    id: req_body.id,
                                     result: CallToolResult::success(vec![Content::text(
                                         result.data.unwrap().to_string(),
                                     )]),
@@ -467,7 +481,7 @@ async fn route_mcp(
                             } else {
                                 res.render(Json(JsonRpcResponse {
                                     jsonrpc: JsonRpcVersion2_0,
-                                    id: NumberOrString::Number(0),
+                                    id: req_body.id,
                                     result: CallToolResult::error(vec![Content::text(result.msg)]),
                                 }));
                             }
@@ -475,7 +489,7 @@ async fn route_mcp(
                         ResBody::Error(v) => {
                             res.render(Json(JsonRpcResponse {
                                 jsonrpc: JsonRpcVersion2_0,
-                                id: NumberOrString::Number(0),
+                                id: req_body.id,
                                 result: CallToolResult::error(vec![Content::text(v.to_string())]),
                             }));
                         }
@@ -485,7 +499,7 @@ async fn route_mcp(
                 v => {
                     res.render(Json(JsonRpcError {
                         jsonrpc: JsonRpcVersion2_0,
-                        id: NumberOrString::Number(0),
+                        id: req_body.id,
                         error: ErrorData::invalid_params(
                             format!("the tool does not exist: {}", v),
                             None,
@@ -496,7 +510,7 @@ async fn route_mcp(
         }
         v => res.render(Json(JsonRpcError {
             jsonrpc: JsonRpcVersion2_0,
-            id: NumberOrString::Number(0),
+            id: req_body.id,
             error: ErrorData::new(ErrorCode::METHOD_NOT_FOUND, v.method().to_string(), None),
         })),
     }

@@ -2,6 +2,7 @@ import json
 import base64
 import requests
 
+
 def test_routes(
     base_url="http://127.0.0.1:8000",
     image_path="./image/4.png",
@@ -142,6 +143,11 @@ def test_routes(
                     "arguments": {"image": image_b64, "color_filter": "green"},
                 },
             },
+        },
+        {
+            "method": "post",
+            "path": "/mcp",
+            "json": {"jsonrpc": "2.0", "method": "notifications/initialized"},
         },
     ]
 
