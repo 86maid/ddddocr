@@ -1,7 +1,5 @@
 {
-  "jsonrpc": "2.0",
-  "id": 0,
-  "result": [
+  "tools": [
     {
       "name": "ocr",
       "description": "Perform OCR (Optical Character Recognition) on the provided image to extract text.",

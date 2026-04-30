@@ -9,11 +9,13 @@ use rmcp::model::ClientNotification;
 use rmcp::model::ClientRequest;
 use rmcp::model::Content;
 use rmcp::model::ErrorCode;
+use rmcp::model::InitializeResult;
 use rmcp::model::JsonRpcError;
 use rmcp::model::JsonRpcNotification;
 use rmcp::model::JsonRpcRequest;
 use rmcp::model::JsonRpcResponse;
 use rmcp::model::JsonRpcVersion2_0;
+use rmcp::model::ListToolsResult;
 use rmcp::ErrorData;
 use salvo::catcher::Catcher;
 use salvo::http::request;
@@ -29,8 +31,10 @@ use std::sync::LazyLock;
 use std::sync::OnceLock;
 use tokio::sync::Mutex;
 use tokio::task::spawn_blocking;
+use tracing::debug;
 use tracing::info;
 use tracing::warn;
+use tracing_subscriber::EnvFilter;
 
 static ARGS: OnceLock<Args> = OnceLock::new();
 static OCR: OnceLock<Ddddocr> = OnceLock::new();
@@ -279,6 +283,11 @@ async fn route_ocr(req: JsonBody<OCRRequest>, res: &mut Response) -> anyhow::Res
         data: Some(response),
     };
 
+    debug!(
+        "ocr response: {}",
+        serde_json::to_string_pretty(&response).unwrap()
+    );
+
     res.render(Json(response));
 
     Ok(())
@@ -297,6 +306,11 @@ async fn route_det(req: JsonBody<DETRequest>, res: &mut Response) -> anyhow::Res
         msg: "success".to_string(),
         data: Some(response),
     };
+
+    debug!(
+        "det response: {}",
+        serde_json::to_string_pretty(&response).unwrap()
+    );
 
     res.render(Json(response));
 
@@ -332,6 +346,11 @@ async fn route_slide_match(
         data: Some(response),
     };
 
+    debug!(
+        "slide match response: {}",
+        serde_json::to_string_pretty(&response).unwrap()
+    );
+
     res.render(Json(response));
 
     Ok(())
@@ -355,6 +374,11 @@ async fn route_slide_comparison(
         msg: "success".to_string(),
         data: Some(response),
     };
+
+    debug!(
+        "slide comparison response: {}",
+        serde_json::to_string_pretty(&response).unwrap()
+    );
 
     res.render(Json(response));
 
@@ -397,6 +421,11 @@ async fn route_status(res: &mut Response) {
         data: Some(response),
     };
 
+    debug!(
+        "status response: {}",
+        serde_json::to_string_pretty(&response).unwrap()
+    );
+
     res.render(Json(response));
 }
 
@@ -417,15 +446,40 @@ async fn route_mcp(
     let req_body = if let JsonRpcRequestOrNotification::Request(v) = req_body.into_inner() {
         v
     } else {
+        debug!("received notification");
         return Ok(());
     };
 
     match &req_body.request {
         ClientRequest::InitializeRequest(_) => {
-            res.render(Text::Json(include_str!("../initialize.json")))
+            debug!("initialize");
+
+            static RESULT: std::sync::LazyLock<InitializeResult> = std::sync::LazyLock::new(|| {
+                serde_json::from_str(include_str!("../initialize.json")).unwrap()
+            });
+
+            res.render(Json(JsonRpcResponse {
+                jsonrpc: JsonRpcVersion2_0,
+                id: req_body.id,
+                result: RESULT.clone(),
+            }));
         }
-        ClientRequest::ListToolsRequest(_) => res.render(Text::Json(include_str!("../list.json"))),
+        ClientRequest::ListToolsRequest(_) => {
+            debug!("list tools");
+
+            static RESULT: std::sync::LazyLock<ListToolsResult> = std::sync::LazyLock::new(|| {
+                serde_json::from_str(include_str!("../list.json")).unwrap()
+            });
+
+            res.render(Json(JsonRpcResponse {
+                jsonrpc: JsonRpcVersion2_0,
+                id: req_body.id,
+                result: RESULT.clone(),
+            }));
+        }
         ClientRequest::CallToolRequest(v) => {
+            debug!("call tool: {}", v.params.name);
+
             match v.params.name.as_ref() {
                 "ocr" | "det" | "slide_match" | "slide_comparison" => {
                     let mut req = salvo::Request::new();
@@ -487,6 +541,8 @@ async fn route_mcp(
                             }
                         }
                         ResBody::Error(v) => {
+                            debug!("tool call error: {}", v.to_string());
+
                             res.render(Json(JsonRpcResponse {
                                 jsonrpc: JsonRpcVersion2_0,
                                 id: req_body.id,
@@ -497,22 +553,28 @@ async fn route_mcp(
                     }
                 }
                 v => {
+                    debug!("tool does not exist: {}", v.to_string());
+
                     res.render(Json(JsonRpcError {
                         jsonrpc: JsonRpcVersion2_0,
                         id: req_body.id,
                         error: ErrorData::invalid_params(
-                            format!("the tool does not exist: {}", v),
+                            format!("tool does not exist: {}", v),
                             None,
                         ),
                     }));
                 }
             };
         }
-        v => res.render(Json(JsonRpcError {
-            jsonrpc: JsonRpcVersion2_0,
-            id: req_body.id,
-            error: ErrorData::new(ErrorCode::METHOD_NOT_FOUND, v.method().to_string(), None),
-        })),
+        v => {
+            debug!("method not found: {}", v.method());
+
+            res.render(Json(JsonRpcError {
+                jsonrpc: JsonRpcVersion2_0,
+                id: req_body.id,
+                error: ErrorData::new(ErrorCode::METHOD_NOT_FOUND, v.method().to_string(), None),
+            }))
+        }
     }
 
     Ok(())
@@ -537,6 +599,10 @@ async fn main() {
 
     tracing_subscriber::fmt()
         .with_ansi(enable_ansi_support().is_ok())
+        .with_env_filter(
+            // RUST_LOG = "info,ddddocr=debug"
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+        )
         .init();
 
     if !(args.ocr || args.old) && !args.det && !args.slide {

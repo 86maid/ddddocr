@@ -128,7 +128,6 @@ def test_routes(
                 "jsonrpc": "2.0",
                 "id": 0,
                 "method": "tools/list",
-                "params": {},
             },
         },
         {
