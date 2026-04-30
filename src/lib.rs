@@ -1703,13 +1703,9 @@ impl<'a> Ddddocr<'a> {
 
         // 图片转换到张量
         let channel = channel as usize;
-
         let width = image.width() as usize;
-
         let height = image.height() as usize;
-
         let image = ndarray::Array::from_shape_vec((channel, height, width), image_bytes)?;
-
         let mut tensor = ndarray::Array::from_shape_vec(
             (1, channel, height, width),
             vec![0f32; channel * height * width],
@@ -1747,9 +1743,7 @@ impl<'a> Ddddocr<'a> {
         } else if self.diy {
             // todo: 自定义模型未经测试
             let result = &self.session.run(ort::inputs![tensor]?)?[0];
-
             let result = result.try_extract_tensor::<u32>()?;
-
             let mut last_item = 0;
 
             Ok(result
@@ -1766,9 +1760,7 @@ impl<'a> Ddddocr<'a> {
                 .collect::<String>())
         } else {
             let result = &self.session.run(ort::inputs![tensor]?)?[0];
-
             let result = result.try_extract_tensor::<f32>()?;
-
             let mut last_item = 0;
 
             // 输入长这样 [[[1,2,3,4], [1,2,3,4], [1,2,3,4]]]
@@ -1848,111 +1840,82 @@ impl<'a> Ddddocr<'a> {
     where
         I: AsRef<[u8]>,
     {
-        #[derive(Debug, Clone, Copy)]
-        struct ScoresBBox {
-            scores: f32,
-            x1: f32,
-            y1: f32,
-            x2: f32,
-            y2: f32,
+        let image = image::load_from_memory(image.as_ref())?.to_rgb8();
+        let (h, w) = (image.height(), image.width());
+        let r = (MODEL_WIDTH as f32 / h as f32).min(MODEL_WIDTH as f32 / w as f32);
+        let new_w = (w as f32 * r) as u32;
+        let new_h = (h as f32 * r) as u32;
+
+        let resized =
+            image::imageops::resize(&image, new_w, new_h, image::imageops::FilterType::Triangle);
+
+        let mut padded =
+            image::RgbImage::from_pixel(MODEL_WIDTH, MODEL_HEIGHT, image::Rgb([114, 114, 114]));
+
+        image::GenericImage::copy_from(&mut padded, &resized, 0, 0)?;
+
+        let mut input_tensor = ndarray::Array::from_shape_vec(
+            (1, 3, MODEL_WIDTH as usize, MODEL_HEIGHT as usize),
+            vec![0f32; 3 * MODEL_WIDTH as usize * MODEL_HEIGHT as usize],
+        )?;
+
+        for (x, y, p) in padded.enumerate_pixels() {
+            let x = x as usize;
+            let y = y as usize;
+
+            input_tensor[[0, 0, y, x]] = p[2] as f32;
+            input_tensor[[0, 1, y, x]] = p[1] as f32;
+            input_tensor[[0, 2, y, x]] = p[0] as f32;
         }
 
-        let original_image = image::load_from_memory(image.as_ref())?;
+        let output = &self.session.run(ort::inputs![input_tensor]?)?[0];
+        let output = output.try_extract_tensor::<f32>()?;
+        let mut dets = Vec::new();
+        let mut grid_offset = 0;
 
-        // 图片缩放到模型大小
-        let x = MODEL_WIDTH as f32 / original_image.width() as f32;
-        let y = MODEL_HEIGHT as f32 / original_image.height() as f32;
-        let ratio = x.min(y);
-        let width = (original_image.width() as f32 * ratio) as u32;
-        let hight = (original_image.height() as f32 * ratio) as u32;
+        for &stride in &STRIDES {
+            let h_grid = MODEL_WIDTH / stride;
+            let w_grid = MODEL_HEIGHT / stride;
 
-        // todo: 要不要使用 resize_exact？
-        let image = original_image
-            .resize(width, hight, image::imageops::FilterType::Triangle)
-            .to_rgb8();
+            for gy in 0..h_grid {
+                for gx in 0..w_grid {
+                    let i = grid_offset + (gy * w_grid + gx) as usize;
+                    let obj = output[[0, i, 4]];
+                    let cls = output[[0, i, 5]];
+                    let score = obj * cls;
 
-        // 空白部分使用灰色填充
-        let image = image::RgbImage::from_fn(MODEL_WIDTH, MODEL_HEIGHT, |x, y| {
-            *image
-                .get_pixel_checked(x, y)
-                .unwrap_or(&image::Rgb([114, 114, 114]))
-        });
+                    if score < SCORE_THR {
+                        continue;
+                    }
 
-        // 图片转换到张量
-        let w = MODEL_WIDTH as usize;
-        let h = MODEL_HEIGHT as usize;
-        let mut input_tensor = ndarray::Array::from_shape_vec((1, 3, h, w), vec![0f32; 3 * h * w])?;
+                    let cx = output[[0, i, 0]];
+                    let cy = output[[0, i, 1]];
+                    let w = output[[0, i, 2]];
+                    let h = output[[0, i, 3]];
+                    let x1 = (cx + gx as f32) * stride as f32;
+                    let y1 = (cy + gy as f32) * stride as f32;
+                    let bw = w.exp() * stride as f32;
+                    let bh = h.exp() * stride as f32;
+                    let mut x1 = x1 - bw / 2.0;
+                    let mut y1 = y1 - bh / 2.0;
+                    let mut x2 = x1 + bw;
+                    let mut y2 = y1 + bh;
 
-        for i in 0..image.width() {
-            for j in 0..image.height() {
-                // 为什么这里他妈的 x 和 y 是相反的？
-                let now = image[(j, i)];
+                    x1 /= r;
+                    y1 /= r;
+                    x2 /= r;
+                    y2 /= r;
 
-                input_tensor[[0, 0, i as usize, j as usize]] = now[0] as f32;
-                input_tensor[[0, 1, i as usize, j as usize]] = now[1] as f32;
-                input_tensor[[0, 2, i as usize, j as usize]] = now[2] as f32;
+                    dets.push((score, [x1, y1, x2, y2]));
+                }
             }
+            grid_offset += (h_grid * w_grid) as usize;
         }
 
-        // 首先将原始图像的宽度和高度与模型的宽度和高度进行比较，得到一个缩放比例 gain
-        // 然后对每个物体进行检测，如果其得分小于 SCORE_THR，则跳过该物体
-        // 接着，对物体的坐标进行调整，最后将调整后的坐标加入到结果列表中
-        // 最后，对结果列表中的物体进行非极大值抑制 (NMS) 处理，得到最终的检测结果
-        let output_tensor = &self.session.run(ort::inputs![input_tensor]?)?[0];
-        let output_tensor = output_tensor.try_extract_tensor::<f32>()?;
-        let x = MODEL_WIDTH as f32 / original_image.width() as f32;
-        let y = MODEL_HEIGHT as f32 / original_image.height() as f32;
-        let gain = x.min(y);
-        let mut result = Vec::new();
+        let scores: Vec<f32> = dets.iter().map(|d| d.0).collect();
+        let mut order: Vec<usize> = (0..scores.len()).collect();
 
-        for i in 0..output_tensor.len() / 6 {
-            let scores = output_tensor[[0, i, 4]] * output_tensor[[0, i, 5]];
-
-            if scores < SCORE_THR {
-                continue;
-            }
-
-            let mut x1 = output_tensor[[0, i, 0]];
-            let mut y1 = output_tensor[[0, i, 1]];
-            let mut x2 = output_tensor[[0, i, 2]];
-            let mut y2 = output_tensor[[0, i, 3]];
-
-            x1 = (x1 + GRIDS[i * 2] as f32) * EXPANDED_STRIDES[i] as f32;
-            y1 = (y1 + GRIDS[i * 2 + 1] as f32) * EXPANDED_STRIDES[i] as f32;
-            x2 = x2.exp() * EXPANDED_STRIDES[i] as f32;
-            y2 = y2.exp() * EXPANDED_STRIDES[i] as f32;
-
-            result.push(ScoresBBox {
-                scores,
-                x1: (x1 - x2 / 2f32) / gain,
-                y1: (y1 - y2 / 2f32) / gain,
-                x2: (x1 + x2 / 2f32) / gain,
-                y2: (y1 + y2 / 2f32) / gain,
-            });
-        }
-
-        // 在目标检测中，非极大值抑制 (NMS) 用于去除冗余的边界框
-        // 首先，NMS 将所有边界框按照得分从高到低排序
-        // 然后选择得分最高的边界框，并将与其 (交并比) 大于一定阈值的边界框从列表中删除
-        // 接着，重复这个过程，直到所有的边界框都被处理完毕
-        // 因此，NMS 的过程是从得分最高的边界框开始，逐渐筛选出最优的边界框
-        let mut scores = Vec::new();
-        let mut areas = Vec::new();
-
-        for i in &result {
-            scores.push(i.scores);
-            areas.push((i.x2 - i.x1 + 1f32) * (i.y2 - i.y1 + 1f32));
-        }
-
-        let mut array = scores;
-        let mut order = (0..array.len()).collect::<Vec<_>>();
-
-        for i in 0..array.len() {
-            for j in i + 1..array.len() {
-                array.swap(i, j);
-                order.swap(i, j);
-            }
-        }
+        order.sort_by(|&a, &b| scores[b].partial_cmp(&scores[a]).unwrap());
 
         let mut keep = Vec::new();
 
@@ -1961,65 +1924,55 @@ impl<'a> Ddddocr<'a> {
 
             keep.push(i);
 
+            let (x1, y1, x2, y2) = {
+                let b = dets[i].1;
+                (b[0], b[1], b[2], b[3])
+            };
+
+            let area_i = (x2 - x1 + 1.0) * (y2 - y1 + 1.0);
             let mut new_order = Vec::new();
 
-            for j in 1..order.len() {
-                let temp = result[order[j]];
-                let xx1 = result[i].x1.max(temp.x1);
-                let yy1 = result[i].y1.max(temp.y1);
-                let xx2 = result[i].x2.min(temp.x2);
-                let yy2 = result[i].y2.min(temp.y2);
-                let ww = 0f32.max(xx2 - xx1 + 1f32);
-                let hh = 0f32.max(yy2 - yy1 + 1f32);
-                let inter = ww * hh;
-                let ovr = inter / (areas[j] + areas[order[j]] - inter);
+            for &j in &order[1..] {
+                let (x1j, y1j, x2j, y2j) = {
+                    let b = dets[j].1;
+                    (b[0], b[1], b[2], b[3])
+                };
+
+                let xx1 = x1.max(x1j);
+                let yy1 = y1.max(y1j);
+                let xx2 = x2.min(x2j);
+                let yy2 = y2.min(y2j);
+                let w = (xx2 - xx1 + 1.0).max(0.0);
+                let h = (yy2 - yy1 + 1.0).max(0.0);
+                let inter = w * h;
+                let area_j = (x2j - x1j + 1.0) * (y2j - y1j + 1.0);
+                let ovr = inter / (area_i + area_j - inter);
 
                 if ovr <= NMS_THR {
-                    new_order.push(order[j]);
+                    new_order.push(j);
                 }
             }
-
             order = new_order;
         }
 
-        let mut new_result = Vec::new();
+        let (ow, oh) = (w as f32, h as f32);
+        let mut result = Vec::new();
 
         for i in keep {
-            let mut point = result[i];
+            let (x1, y1, x2, y2) = {
+                let b = dets[i].1;
+                (b[0], b[1], b[2], b[3])
+            };
 
-            if point.x1 < 0f32 {
-                point.x1 = 0f32;
-            } else if point.x1 > original_image.width() as f32 {
-                point.x1 = (original_image.width() - 1) as f32;
-            }
+            let x1 = x1.clamp(0.0, ow) as u32;
+            let y1 = y1.clamp(0.0, oh) as u32;
+            let x2 = x2.clamp(0.0, ow) as u32;
+            let y2 = y2.clamp(0.0, oh) as u32;
 
-            if point.y1 < 0f32 {
-                point.y1 = 0f32;
-            } else if point.y1 > original_image.height() as f32 {
-                point.y1 = (original_image.height() - 1) as f32;
-            }
-
-            if point.x2 < 0f32 {
-                point.x2 = 0f32;
-            } else if point.x2 > original_image.width() as f32 {
-                point.x2 = (original_image.width() - 1) as f32;
-            }
-
-            if point.y2 < 0f32 {
-                point.y2 = 0f32;
-            } else if point.y2 > original_image.height() as f32 {
-                point.y2 = (original_image.height() - 1) as f32;
-            }
-
-            new_result.push(crate::BBox {
-                x1: point.x1 as u32,
-                y1: point.y1 as u32,
-                x2: point.x2 as u32,
-                y2: point.y2 as u32,
-            });
+            result.push(crate::BBox { x1, y1, x2, y2 });
         }
 
-        Ok(new_result)
+        Ok(result)
     }
 
     /// 目标检测。
